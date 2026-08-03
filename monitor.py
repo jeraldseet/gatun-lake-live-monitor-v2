@@ -6,19 +6,18 @@ import csv
 
 # Target file
 LIVE_FILE = 'live_feed.csv'
-MAX_ROWS = 432 # 3 days * 24 hours * 6 runs/hour
+MAX_ROWS = 432 # 3 days * 24 hours * 6 runs/hour (Requested by analyst team)
 
 def get_water_level():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         
-        # 1. Navigate to the URL and wait for background API requests to settle
+        # 1. Navigate to the URL>wait for background API requests to settle
         page.goto("https://panama.aquaticinformatics.net/Data/Dashboard/1", timeout=60000, wait_until="networkidle")
         
         try:
-             # 2. Target the element, but strictly wait for it to contain the text "ft"
-             # This guarantees we do not extract the text until the JavaScript has injected the number.
+             # 2. Target the level element, but wait for it to contain the text "ft"
              locator = page.locator(".gaugechart .text-center", has_text="ft").first
              locator.wait_for(timeout=15000, state="visible") 
              
