@@ -13,17 +13,21 @@ def get_water_level():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         
-        # 1. Navigate to the URL
-        page.goto("https://panama.aquaticinformatics.net/Data/Dashboard/1", timeout=60000)
+        # 1. Navigate to the URL and wait for background API requests to settle
+        page.goto("https://panama.aquaticinformatics.net/Data/Dashboard/1", timeout=60000, wait_until="networkidle")
         
         try:
-             # 2. Target the first gaugechart's text-center element (which is Gatun Lake)
-             # We use .first to ensure we don't accidentally grab Alhajuela Lake
-             locator = page.locator(".gaugechart .text-center").first
-             locator.wait_for(timeout=15000) 
+             # 2. Target the element, but strictly wait for it to contain the text "ft"
+             # This guarantees we do not extract the text until the JavaScript has injected the number.
+             locator = page.locator(".gaugechart .text-center", has_text="ft").first
+             locator.wait_for(timeout=15000, state="visible") 
              
              # Extract the text (e.g., "84.55 ft")
              raw_level = locator.inner_text().strip()
+             
+             # Failsafe: if it's still somehow empty, trigger an error rather than logging a blank row
+             if not raw_level:
+                 raise ValueError("Element loaded, but no text was found inside.")
              
              # Clean up the string to only keep the number so Excel can chart it easily
              level = raw_level.replace(' ft', '')
