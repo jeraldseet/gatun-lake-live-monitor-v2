@@ -12,15 +12,22 @@ def get_water_level():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-        # Navigate to the Gatun Water Level Indicators page
-        page.goto("https://evtms-rpts.pancanal.com/eng/h2o/index.html", timeout=60000)
         
-        # Scrape the data. 
-        # Note: You will need to inspect the page and update this selector to the exact element 
-        # containing the live water level.
+        # 1. Navigate to the URL
+        page.goto("https://panama.aquaticinformatics.net/Data/Dashboard/1", timeout=60000)
+        
         try:
-             element = page.wait_for_selector(".water-level-class", timeout=10000) # UPDATE THIS SELECTOR
-             level = element.inner_text().strip()
+             # 2. Target the first gaugechart's text-center element (which is Gatun Lake)
+             # We use .first to ensure we don't accidentally grab Alhajuela Lake
+             locator = page.locator(".gaugechart .text-center").first
+             locator.wait_for(timeout=15000) 
+             
+             # Extract the text (e.g., "84.55 ft")
+             raw_level = locator.inner_text().strip()
+             
+             # Clean up the string to only keep the number so Excel can chart it easily
+             level = raw_level.replace(' ft', '')
+             
         except Exception as e:
              print(f"Error finding element: {e}")
              level = None
