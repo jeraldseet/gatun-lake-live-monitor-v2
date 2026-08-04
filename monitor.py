@@ -14,7 +14,8 @@ def get_water_level():
         page = browser.new_page()
         
         # 1. Navigate to the URL>wait for background API requests to settle
-        page.goto("https://panama.aquaticinformatics.net/Data/Dashboard/1", timeout=60000, wait_until="networkidle")
+        # CHANGED: 'networkidle' replaced with 'domcontentloaded' to prevent timeouts
+        page.goto("https://panama.aquaticinformatics.net/Data/Dashboard/1", timeout=60000, wait_until="domcontentloaded")
         
         try:
              # 2. Target the level element, but wait for it to contain the text "ft"
