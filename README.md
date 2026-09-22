@@ -31,7 +31,7 @@ Built as a serverless, event-driven data pipeline using Python, GitHub Actions, 
 
 ### 4.2 Infrastructure & CI/CD Pipeline
 * **Environment:** GitHub Actions hosted runners (Ubuntu).
-* **Execution Steps:** Checks out the repository, installs the Python environment/dependencies, executes the Playwright script, and uses Pandas to append new readings while dropping older rows to maintain the strict 432-row limit. It then pushes the updated CSV back to the main branch.
+* **Execution Steps:** Checks out the repository, installs the Python environment/dependencies, executes the Playwright script, and uses Pandas to append new readings while dropping older rows to maintain the strict 432-row limit (requested by analyst). It then pushes the updated CSV back to the main branch.
 
 ### 4.3 Scheduling, Orchestration, and Security
 * **Decoupled Scheduling:** GitHub Actions' native cron shares a global queue, causing execution delays. Scheduling was decoupled to an external service (cron-job.org) sending a precise POST request every 10 minutes to the GitHub REST API via `workflow_dispatch`.
