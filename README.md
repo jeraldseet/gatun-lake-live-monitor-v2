@@ -1,7 +1,9 @@
-Gatun Lake Water Level Monitoring System
+# Gatun Lake Water Level Monitoring System
 
-Author: Jerald Seet Jin  
-Date: 31/07/2026  
+**Author:** Jerald Seet Jin  
+**Date:** 31/07/2026  
+
+---
 
 ## 1. Executive Summary
 The Gatun Lake automated monitoring system is designed to provide a continuous, autonomous data feed of water levels from the Panama Canal Authority (ACP). Because water levels in Gatun Lake directly impact the draft limits and transit capacity of the Panama Canal, having real-time, accurate data provides a distinct strategic and trading edge.
