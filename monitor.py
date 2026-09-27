@@ -1,5 +1,5 @@
 import pandas as pd
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 import os
 from datetime import datetime
 import csv
@@ -18,18 +18,20 @@ def get_water_level():
         page.goto("https://panama.aquaticinformatics.net/Data/Dashboard/1", timeout=60000, wait_until="domcontentloaded")
         
         try:
-             # 2. Target the level element, but wait for it to contain the text "ft"
-             locator = page.locator(".gaugechart .text-center", has_text="ft").first
-             locator.wait_for(timeout=15000, state="visible") 
+             # 1. Lock onto the first gauge chart in the DOM (Gatun) regardless of its text
+             gatun_locator = page.locator(".gaugechart .text-center").nth(0)
              
-             # Extract the text (e.g., "84.55 ft")
-             raw_level = locator.inner_text().strip()
+             # 2. Force Playwright to watch ONLY this specific Gatun gauge and wait for it to load
+             expect(gatun_locator).to_contain_text("ft", timeout=15000)
              
-             # Failsafe: if it's still somehow empty, trigger an error rather than logging a blank row
+             # 3. Extract the text safely
+             raw_level = gatun_locator.inner_text().strip()
+             
+             # Failsafe
              if not raw_level:
                  raise ValueError("Element loaded, but no text was found inside.")
              
-             # Clean up the string to only keep the number so Excel can chart it easily
+             # Clean up the string to only keep the number
              level = raw_level.replace(' ft', '')
              
         except Exception as e:
