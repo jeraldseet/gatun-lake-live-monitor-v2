@@ -13,25 +13,27 @@ def get_water_level():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         
-        # 1. Navigate to the URL>wait for background API requests to settle
-        # CHANGED: 'networkidle' replaced with 'domcontentloaded' to prevent timeouts
         page.goto("https://panama.aquaticinformatics.net/Data/Dashboard/1", timeout=60000, wait_until="domcontentloaded")
         
         try:
-             # 1. Lock onto the first gauge chart in the DOM (Gatun) regardless of its text
-             gatun_locator = page.locator(".gaugechart .text-center").nth(0)
+             # 1. Target ALL gauge charts on the page that contain the text 'ft'
+             all_gauges = page.locator(".gaugechart .text-center", has_text="ft")
              
-             # 2. Force Playwright to watch ONLY this specific Gatun gauge and wait for it to load
-             expect(gatun_locator).to_contain_text("ft", timeout=15000)
+             # 2. Force Playwright to wait until the SECOND gauge (index 1) becomes visible.
+             # This guarantees both Gatun and Alhajuela have finished pulling their data.
+             all_gauges.nth(1).wait_for(timeout=15000, state="visible") 
              
-             # 3. Extract the text safely
+             # 3. Now that the page is stable, Gatun is mathematically locked as the first element.
+             gatun_locator = all_gauges.nth(0)
+             
+             # Extract the text (e.g., "84.55 ft")
              raw_level = gatun_locator.inner_text().strip()
              
-             # Failsafe
+             # Failsafe: if it's still somehow empty, trigger an error rather than logging a blank row
              if not raw_level:
                  raise ValueError("Element loaded, but no text was found inside.")
              
-             # Clean up the string to only keep the number
+             # Clean up the string to only keep the number so Excel can chart it easily
              level = raw_level.replace(' ft', '')
              
         except Exception as e:
@@ -40,7 +42,6 @@ def get_water_level():
              
         browser.close()
         return level
-
 def update_data():
     level = get_water_level()
     if level is None:
