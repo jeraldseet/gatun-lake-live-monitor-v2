@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gatun Lake Live Transit Capacity</title>
-    <!-- Load Chart.js, the Annotation plugin for background zones, and PapaParse -->
+    <!-- Load Chart.js, the Annotation plugin, and PapaParse -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
@@ -13,6 +13,14 @@
         .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         h1 { color: #333; }
         p { color: #666; font-size: 14px; }
+        
+        /* Table Styling */
+        table { width: 100%; border-collapse: collapse; margin-top: 25px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f8f9fa; font-weight: bold; color: #333; }
+        #current-status-row { font-weight: bold; }
+        .table-title { margin-top: 30px; font-size: 1.2em; color: #333; text-align: left; font-weight: bold; }
+        .latest-reading { text-align: left; font-size: 1em; color: #555; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -20,7 +28,29 @@
 <div class="container">
     <h1>Gatun Lake Live Water Level & Transit Capacity</h1>
     <p>Data automatically updates every 10 minutes. Refresh page for latest feed.</p>
+    
     <canvas id="gatunChart" width="800" height="400"></canvas>
+
+    <div class="table-title">Current Operational Status</div>
+    <div class="latest-reading" id="latest-reading-text">Latest Reading: Loading...</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Draft Allowed (Neopanamax)</th>
+                <th>Daily Transits</th>
+                <th>Operational Impact</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr id="current-status-row">
+                <td id="td-status">Loading...</td>
+                <td id="td-draft">Loading...</td>
+                <td id="td-transits">Loading...</td>
+                <td id="td-impact">Loading...</td>
+            </tr>
+        </tbody>
+    </table>
 </div>
 
 <script>
@@ -34,87 +64,93 @@
             const labels = data.map(row => row.Timestamp);
             const waterLevels = data.map(row => parseFloat(row.Value));
             
-            const fullyOperational = Array(data.length).fill(86.0);
-            const restricted = Array(data.length).fill(84.0);
-            const severe = Array(data.length).fill(80.0);
+            // Extract the most recent data point for the table
+            const currentLevel = waterLevels[waterLevels.length - 1];
+            const currentTime = labels[labels.length - 1];
+            
+            // --- Table Update Logic ---
+            document.getElementById('latest-reading-text').innerText = `Latest Reading: ${currentLevel} ft (Updated: ${currentTime})`;
+            
+            let statusText = "", draftText = "", transitText = "", impactText = "", rowColor = "";
 
+            if (currentLevel >= 87) {
+                statusText = "Ideal"; draftText = "50 feet"; transitText = "38-40 vessels"; impactText = "Full capacity, no restrictions";
+                rowColor = "rgba(0, 100, 0, 0.25)";
+            } else if (currentLevel >= 85) {
+                statusText = "Normal"; draftText = "50 feet"; transitText = "36-38 vessels"; impactText = "Standard operations";
+                rowColor = "rgba(40, 167, 69, 0.25)";
+            } else if (currentLevel >= 83) {
+                statusText = "Watch"; draftText = "48-50 feet"; transitText = "32-36 vessels"; impactText = "Minor draft reductions";
+                rowColor = "rgba(255, 193, 7, 0.25)";
+            } else if (currentLevel >= 80) {
+                statusText = "Restricted"; draftText = "45-48 feet"; transitText = "28-32 vessels"; impactText = "Moderate capacity cuts";
+                rowColor = "rgba(253, 126, 20, 0.25)";
+            } else if (currentLevel >= 79) {
+                statusText = "Severe"; draftText = "44-46 feet"; transitText = "24-28 vessels"; impactText = "Heavy restrictions";
+                rowColor = "rgba(220, 53, 69, 0.25)";
+            } else {
+                statusText = "Critical"; draftText = "< 44 feet"; transitText = "22-24 vessels"; impactText = "Maximum restrictions";
+                rowColor = "rgba(139, 0, 0, 0.25)";
+            }
+
+            document.getElementById('td-status').innerText = statusText;
+            document.getElementById('td-draft').innerText = draftText;
+            document.getElementById('td-transits').innerText = transitText;
+            document.getElementById('td-impact').innerText = impactText;
+            document.getElementById('current-status-row').style.backgroundColor = rowColor;
+
+            // --- Chart Drawing Logic ---
             const ctx = document.getElementById('gatunChart').getContext('2d');
             new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [
+                        // Main Line Dataset
                         {
                             label: 'Gatun Lake Level (ft)',
                             data: waterLevels,
-                            borderColor: '#002060', // Darkened to navy blue for high contrast against the colored zones
+                            borderColor: '#002060', // Navy blue
                             borderWidth: 3,
-                            fill: false, // Removed the blue fill so the background zones are clearly visible
+                            fill: false,
                             tension: 0.1,
                             pointRadius: 0
                         },
-                        {
-                            label: 'Fully Operational (86ft)',
-                            data: fullyOperational,
-                            borderColor: '#28a745',
-                            borderDash: [5, 5],
-                            borderWidth: 2,
-                            pointRadius: 0
-                        },
-                        {
-                            label: 'Restricted Warning (84ft)',
-                            data: restricted,
-                            borderColor: '#ffc107',
-                            borderDash: [5, 5],
-                            borderWidth: 2,
-                            pointRadius: 0
-                        },
-                        {
-                            label: 'Severe Restriction (80ft)',
-                            data: severe,
-                            borderColor: '#dc3545',
-                            borderDash: [5, 5],
-                            borderWidth: 2,
-                            pointRadius: 0
-                        }
+                        // Dummy datasets used purely to generate colored legend labels
+                        { type: 'bar', label: 'Ideal (>87ft) | 38-40 Transits', backgroundColor: 'rgba(0, 100, 0, 0.3)', data: [] },
+                        { type: 'bar', label: 'Normal (85-87ft) | 36-38 Transits', backgroundColor: 'rgba(40, 167, 69, 0.3)', data: [] },
+                        { type: 'bar', label: 'Watch (83-85ft) | 32-36 Transits', backgroundColor: 'rgba(255, 193, 7, 0.3)', data: [] },
+                        { type: 'bar', label: 'Restricted (80-83ft) | 28-32 Transits', backgroundColor: 'rgba(253, 126, 20, 0.3)', data: [] },
+                        { type: 'bar', label: 'Severe (79-80ft) | 24-28 Transits', backgroundColor: 'rgba(220, 53, 69, 0.3)', data: [] },
+                        { type: 'bar', label: 'Critical (<79ft) | 22-24 Transits', backgroundColor: 'rgba(139, 0, 0, 0.3)', data: [] }
                     ]
                 },
                 options: {
                     responsive: true,
                     plugins: {
+                        legend: {
+                            labels: {
+                                // Filter out the dummy bar datasets from showing on the chart if clicked
+                                filter: function(item, chart) {
+                                    return true; 
+                                }
+                            }
+                        },
                         annotation: {
                             annotations: {
-                                // Zone 1: > 86 (Green)
-                                fullyOpZone: {
-                                    type: 'box',
-                                    yMin: 86,
-                                    yMax: 92,
-                                    backgroundColor: 'rgba(40, 167, 69, 0.15)', // 15% opacity green
-                                    borderWidth: 0
-                                },
-                                // Zone 2: 84 to 86 (Orange)
-                                restrictedZone: {
-                                    type: 'box',
-                                    yMin: 84,
-                                    yMax: 86,
-                                    backgroundColor: 'rgba(255, 193, 7, 0.15)', // 15% opacity orange
-                                    borderWidth: 0
-                                },
-                                // Zone 3: < 80 (Red)
-                                severeZone: {
-                                    type: 'box',
-                                    yMin: 75,
-                                    yMax: 80,
-                                    backgroundColor: 'rgba(220, 53, 69, 0.15)', // 15% opacity red
-                                    borderWidth: 0
-                                }
+                                idealZone: { type: 'box', yMin: 87, yMax: 95, backgroundColor: 'rgba(0, 100, 0, 0.15)', borderWidth: 0 },
+                                normalZone: { type: 'box', yMin: 85, yMax: 87, backgroundColor: 'rgba(40, 167, 69, 0.15)', borderWidth: 0 },
+                                watchZone: { type: 'box', yMin: 83, yMax: 85, backgroundColor: 'rgba(255, 193, 7, 0.15)', borderWidth: 0 },
+                                restrictedZone: { type: 'box', yMin: 80, yMax: 83, backgroundColor: 'rgba(253, 126, 20, 0.15)', borderWidth: 0 },
+                                severeZone: { type: 'box', yMin: 79, yMax: 80, backgroundColor: 'rgba(220, 53, 69, 0.15)', borderWidth: 0 },
+                                criticalZone: { type: 'box', yMin: 70, yMax: 79, backgroundColor: 'rgba(139, 0, 0, 0.15)', borderWidth: 0 }
                             }
                         }
                     },
                     scales: {
                         y: {
                             min: 75,
-                            max: 92,
+                            max: 90,
                             title: { display: true, text: 'Elevation (Feet)' }
                         },
                         x: {
