@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gatun Lake Live Transit Capacity</title>
+    <!-- Load Chart.js for graphing and PapaParse for reading the CSV -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; text-align: center; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        p { color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Gatun Lake Live Water Level & Transit Capacity</h1>
+    <p>Data automatically updates every 10 minutes. Refresh page for latest feed.</p>
+    <canvas id="gatunChart" width="800" height="400"></canvas>
+</div>
+
+<script>
+    // 1. Fetch the live CSV data from your repository
+    Papa.parse("live_feed.csv", {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            const data = results.data;
+            
+            // 2. Extract Timestamps (X-axis) and Water Levels (Y-axis)
+            const labels = data.map(row => row.Timestamp);
+            const waterLevels = data.map(row => parseFloat(row.Value));
+            
+            // 3. Create the arrays for our static threshold lines
+            const fullyOperational = Array(data.length).fill(86.0);
+            const restricted = Array(data.length).fill(84.0);
+            const severe = Array(data.length).fill(80.0);
+
+            // 4. Draw the Chart
+            const ctx = document.getElementById('gatunChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Gatun Lake Level (ft)',
+                            data: waterLevels,
+                            borderColor: '#0052cc', // Dark blue
+                            backgroundColor: 'rgba(0, 82, 204, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.1,
+                            pointRadius: 0 // Hides the dots to make the line cleaner
+                        },
+                        {
+                            label: 'Fully Operational (86ft)',
+                            data: fullyOperational,
+                            borderColor: '#28a745', // Green
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Restricted Warning (84ft)',
+                            data: restricted,
+                            borderColor: '#ffc107', // Yellow
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Severe Restriction (80ft)',
+                            data: severe,
+                            borderColor: '#dc3545', // Red
+                            borderDash: [5, 5],
+                            borderWidth: 2,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            min: 75, // Lock the axis to prevent visual distortion
+                            max: 92,
+                            title: { display: true, text: 'Elevation (Feet)' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Timestamp (Local Time)' }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                }
+            });
+        }
+    });
+</script>
+
+</body>
+</html>
