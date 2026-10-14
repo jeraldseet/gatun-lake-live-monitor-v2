@@ -91,6 +91,7 @@
         .matrix-range { font-size: 0.7rem; color: var(--text-muted); }
         .matrix-transits { font-size: 0.75rem; font-weight: bold; color: var(--text-main); margin-top: 4px; }
         .matrix-draft { font-size: 0.7rem; color: var(--text-muted); }
+        .matrix-impact { font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 6px; font-style: italic; }
 
         /* Right Column: Data Inspector Panel */
         .side-panel {
@@ -106,7 +107,11 @@
         .panel-header { font-size: 0.80rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; letter-spacing: 1px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;}
         
         .inspect-time { font-size: 0.85rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px;}
-        .inspect-value { font-size: 3.5rem; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; line-height: 1; margin-bottom: 12px;}
+        
+        /* Hero Value & Unit Styling */
+        .inspect-value-wrapper { display: flex; align-items: baseline; gap: 6px; margin-bottom: 12px; }
+        .inspect-value { font-size: 3.5rem; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; line-height: 1; }
+        .inspect-unit { font-size: 1.5rem; color: var(--text-muted); font-weight: normal; }
         
         .status-badge { display: inline-flex; align-items: center; justify-content: center; padding: 4px 12px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; width: max-content; margin-bottom: 24px;}
         
@@ -144,43 +149,49 @@
                 <canvas id="gatunChart"></canvas>
             </div>
 
-            <!-- STATIC RISK MATRIX LEGEND -->
+            <!-- STATIC RISK MATRIX LEGEND WITH IMPACTS -->
             <div class="risk-matrix">
                 <div class="matrix-block ideal">
                     <span class="matrix-title">Ideal</span>
                     <span class="matrix-range">> 87 ft</span>
                     <span class="matrix-transits">38-40 vessels</span>
                     <span class="matrix-draft">50 ft Draft</span>
+                    <span class="matrix-impact">Full capacity ops.</span>
                 </div>
                 <div class="matrix-block normal">
                     <span class="matrix-title">Normal</span>
                     <span class="matrix-range">85 - 87 ft</span>
                     <span class="matrix-transits">36-38 vessels</span>
                     <span class="matrix-draft">50 ft Draft</span>
+                    <span class="matrix-impact">Standard ops.</span>
                 </div>
                 <div class="matrix-block watch">
                     <span class="matrix-title">Watch</span>
                     <span class="matrix-range">83 - 85 ft</span>
                     <span class="matrix-transits">32-36 vessels</span>
                     <span class="matrix-draft">48-50 ft Draft</span>
+                    <span class="matrix-impact">Early warnings.</span>
                 </div>
                 <div class="matrix-block restricted">
                     <span class="matrix-title">Restricted</span>
                     <span class="matrix-range">80 - 83 ft</span>
                     <span class="matrix-transits">28-32 vessels</span>
                     <span class="matrix-draft">45-48 ft Draft</span>
+                    <span class="matrix-impact">Moderate cuts.</span>
                 </div>
                 <div class="matrix-block severe">
                     <span class="matrix-title">Severe</span>
                     <span class="matrix-range">79 - 80 ft</span>
                     <span class="matrix-transits">24-28 vessels</span>
                     <span class="matrix-draft">44-46 ft Draft</span>
+                    <span class="matrix-impact">Heavy restrictions.</span>
                 </div>
                 <div class="matrix-block critical">
                     <span class="matrix-title">Critical</span>
                     <span class="matrix-range">< 79 ft</span>
                     <span class="matrix-transits">22-24 vessels</span>
                     <span class="matrix-draft">< 44 ft Draft</span>
+                    <span class="matrix-impact">Max restrictions.</span>
                 </div>
             </div>
         </div>
@@ -190,7 +201,10 @@
             <div class="panel-header">Crosshair Data Inspector</div>
             
             <div class="inspect-time" id="insp-time">Hover chart to inspect</div>
-            <div class="inspect-value" id="insp-elevation">--.--</div>
+            <div class="inspect-value-wrapper">
+                <div class="inspect-value" id="insp-elevation">--.--</div>
+                <div class="inspect-unit">ft</div>
+            </div>
             <div class="status-badge" id="insp-badge">LOADING...</div>
 
             <div class="inspect-stack">
