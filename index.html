@@ -9,37 +9,25 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
-        :root {
-            --bg-body: #0F172A;
-            --bg-card: #1E293B;
-            --text-main: #F8FAFC;
-            --text-muted: #94A3B8;
-            --accent-blue: #00D1FF;
-        }
-        
+        :root { --bg-body: #0F172A; --bg-card: #1E293B; --text-main: #F8FAFC; --text-muted: #94A3B8; --accent-blue: #00D1FF; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-body); color: var(--text-main); margin: 0; padding: 20px; }
         .container { max-width: 1100px; margin: auto; }
-        
         .top-bar { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
         .top-bar h1 { margin: 0; font-size: 1.2rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: bold;}
         .live-status { font-size: 0.85rem; color: #10B981; display: flex; align-items: center; gap: 6px; font-weight: bold; }
         .live-dot { height: 8px; width: 8px; background-color: #10B981; border-radius: 50%; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-
         .kpi-card { background-color: var(--bg-card); padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; }
         .kpi-top-row { display: flex; align-items: baseline; gap: 20px; }
         .kpi-value { font-size: 3.5rem; font-weight: 700; line-height: 1; color: var(--text-main); font-variant-numeric: tabular-nums; }
         .kpi-badge { padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 1.1rem; border: 1px solid rgba(255,255,255,0.2); }
-        
         .kpi-bottom-row { display: flex; align-items: center; gap: 15px; font-size: 1rem; color: #E2E8F0; background-color: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 6px; }
         .delta-value { font-weight: bold; }
         .divider { color: #334155; user-select: none; }
-
         .toolbar { display: flex; gap: 10px; margin-bottom: 15px; }
         .tf-btn { background: var(--bg-card); color: var(--text-muted); border: 1px solid #334155; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: all 0.2s; }
         .tf-btn:hover { background: #334155; color: white; }
         .tf-btn.active { background: rgba(0, 209, 255, 0.1); color: var(--accent-blue); border-color: var(--accent-blue); }
-
         .chart-container { background-color: var(--bg-card); padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); position: relative; height: 500px; width: 100%; }
         .last-update-text { font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; text-align: right; }
     </style>
@@ -66,7 +54,6 @@
         </div>
     </div>
 
-    <!-- Timeframe Toggles -->
     <div class="toolbar">
         <button class="tf-btn" onclick="loadDashboard('1D')">1D</button>
         <button class="tf-btn active" onclick="loadDashboard('3D')">3D</button>
@@ -86,6 +73,8 @@
     let fullTimestamps = []; 
     let pollInterval = null;
     let currentTimeframe = '3D';
+    let latestLiveTimestamp = null;
+    let latestLiveValue = null;
 
     const crosshairPlugin = {
         id: 'crosshair',
@@ -111,44 +100,71 @@
     };
     Chart.register(crosshairPlugin);
 
-    // Primary function: coordinates data fetching
     function loadDashboard(timeframe) {
         currentTimeframe = timeframe;
         
         document.querySelectorAll('.tf-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`.tf-btn[onclick="loadDashboard('${timeframe}')"]`).classList.add('active');
 
-        // TASK 1: INDEPENDENT KPI FETCHING
-        // Always fetch the live feed separately to ensure the top Hero KPIs never go stale
+        // Always fetch live feed first to populate KPIs and grab the absolute latest datapoint
         Papa.parse("live_feed.csv?_=" + new Date().getTime(), { 
             download: true, header: true, skipEmptyLines: true,
             complete: function(res) {
                 const liveData = res.data.filter(r => r.Value !== undefined && String(r.Value).trim() !== "" && !isNaN(parseFloat(r.Value)));
-                if (liveData.length > 0) updateKPIs(liveData);
-            }
-        });
+                if (liveData.length > 0) {
+                    updateKPIs(liveData);
+                    
+                    // Store the absolute latest live data point for in-memory stitching
+                    latestLiveTimestamp = liveData[liveData.length - 1].Timestamp;
+                    latestLiveValue = parseFloat(liveData[liveData.length - 1].Value);
 
-        // TASK 2: CHART FETCHING
-        const isHistorical = ['1M', '1Y'].includes(timeframe);
-        const dataSource = isHistorical ? "Download_Gatun_Lake_Water_Level_History.csv" : "live_feed.csv?_=" + new Date().getTime();
-        const dateCol = isHistorical ? "DATE_LOG" : "Timestamp";
-        const valCol = isHistorical ? "GATUN_LAKE_LEVEL(FEET)" : "Value";
-
-        Papa.parse(dataSource, { 
-            download: true, header: true, skipEmptyLines: true,
-            complete: function(res) {
-                // BUG FIX 1: Strict Data Validation prevents the "Death Drop" 
-                const validChartData = res.data.filter(row => row[valCol] !== undefined && String(row[valCol]).trim() !== "" && !isNaN(parseFloat(row[valCol])));
-                if (validChartData.length > 0) drawChart(validChartData, timeframe, isHistorical, dateCol, valCol);
+                    // Now route chart fetching based on timeframe
+                    const isHistorical = ['1M', '1Y'].includes(timeframe);
+                    if (isHistorical) {
+                        fetchHistoricalAndDraw(timeframe);
+                    } else {
+                        drawChart(liveData, timeframe, false, "Timestamp", "Value");
+                    }
+                }
             }
         });
     }
 
-    // Handles ONLY the top hero section
+    function fetchHistoricalAndDraw(timeframe) {
+        Papa.parse("Download_Gatun_Lake_Water_Level_History.csv", { 
+            download: true, header: true, skipEmptyLines: true,
+            complete: function(res) {
+                let validChartData = res.data.filter(row => {
+                    const val = parseFloat(row['GATUN_LAKE_LEVEL(FEET)']);
+                    return row['GATUN_LAKE_LEVEL(FEET)'] !== undefined && String(row['GATUN_LAKE_LEVEL(FEET)']).trim() !== "" && !isNaN(val) && val > 0;
+                });
+                
+                // IN-MEMORY STITCHING: If we have a live point, append it to the historical array
+                if (latestLiveTimestamp && latestLiveValue) {
+                    const dateOnlyLive = latestLiveTimestamp.split(' ')[0]; // Extract YYYY-MM-DD
+                    const lastHistDate = validChartData[validChartData.length - 1]['DATE_LOG'];
+                    
+                    // Only append if the live date is newer than the last historical date to prevent duplication
+                    if (dateOnlyLive !== lastHistDate) {
+                        validChartData.push({
+                            'DATE_LOG': latestLiveTimestamp, 
+                            'GATUN_LAKE_LEVEL(FEET)': latestLiveValue
+                        });
+                    } else {
+                        // If the dates are the same, just overwrite the last historical value with the highly accurate live value
+                        validChartData[validChartData.length - 1]['GATUN_LAKE_LEVEL(FEET)'] = latestLiveValue;
+                        validChartData[validChartData.length - 1]['DATE_LOG'] = latestLiveTimestamp; // Keep full timestamp for tooltip
+                    }
+                }
+
+                if (validChartData.length > 0) drawChart(validChartData, timeframe, true, "DATE_LOG", "GATUN_LAKE_LEVEL(FEET)");
+            }
+        });
+    }
+
     function updateKPIs(data) {
         const waterLevels = data.map(row => parseFloat(row.Value));
         const currentLevel = waterLevels[waterLevels.length - 1];
-        
         const prevIndex = Math.max(0, waterLevels.length - 145);
         const prevLevel = waterLevels[prevIndex];
         const delta24h = (currentLevel - prevLevel).toFixed(2);
@@ -190,7 +206,6 @@
         document.getElementById('sync-text').innerText = `LIVE (Synced ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')})`;
     }
 
-    // Handles ONLY the chart rendering
     function drawChart(data, timeframe, isHistorical, dateCol, valCol) {
         const latestDateStr = data[data.length - 1][dateCol];
         const latestDate = new Date(latestDateStr);
@@ -210,7 +225,7 @@
         fullTimestamps = filteredData.map(row => row[dateCol]);
         const waterLevels = filteredData.map(row => parseFloat(row[valCol]));
         
-        document.getElementById('last-update').innerText = `Data last recorded by pipeline: ${fullTimestamps[fullTimestamps.length - 1]}`;
+        document.getElementById('last-update').innerText = `Data last recorded by pipeline: ${latestLiveTimestamp}`;
 
         const shortLabels = fullTimestamps.map(ts => {
             const d = new Date(ts);
@@ -223,12 +238,10 @@
             return `${day} ${month} ${hours}:${mins}`;
         });
 
-        // BUG FIX 3: Pad the Y-Axis minimums to retain visual context of the colored zones
         let yMin, yMax;
         if (['1D', '3D', '1W'].includes(timeframe)) {
             const minVal = Math.min(...waterLevels);
             const maxVal = Math.max(...waterLevels);
-            // Expands the view by 1.5 feet above and below to keep the nearest boundary visible
             yMin = Math.floor(minVal) - 1.5; 
             yMax = Math.ceil(maxVal) + 1.5;
         } else {
@@ -250,7 +263,6 @@
         } else {
             const ctx = document.getElementById('gatunChart').getContext('2d');
             
-            // Adjust label positioning slightly lower so it stays visible even when hugging top boundaries
             const createZone = (min, max, color, labelText) => ({
                 type: 'box', yMin: min, yMax: max, backgroundColor: color, borderWidth: 0,
                 label: {
@@ -310,15 +322,9 @@
         }
     }
 
-    // Initialize with 3D view
     loadDashboard('3D');
-
-    // Auto-refresh logic
     clearInterval(pollInterval);
-    pollInterval = setInterval(() => {
-        if (['1D', '3D', '1W'].includes(currentTimeframe)) loadDashboard(currentTimeframe);
-    }, 60000);
-
+    pollInterval = setInterval(() => { if (['1D', '3D', '1W'].includes(currentTimeframe)) loadDashboard(currentTimeframe); }, 60000);
 </script>
 </body>
 </html>
