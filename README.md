@@ -25,6 +25,6 @@ The backend relies entirely on serverless automation via GitHub Actions to maint
 * **In-Memory Stitching:** JavaScript seamlessly merges the static historical data with the live intra-day feed to ensure the 1M and 1Y charts never lag behind real-time market conditions.
 
 ## Market Context: Why Gatun Lake Matters
-Unlike sea-level canals, the Panama Canal relies on a freshwater reservoir—Gatun Lake—sitting 85 feet above sea level. Every vessel transit consumes roughly 52 million gallons of water. During prolonged dry seasons or El Niño events, water levels plummet, forcing the ACP to enforce strict draft reductions and transit quotas. 
+Unlike sea-level canals, the Panama Canal relies on the Gatun lake sitting 85 feet above sea level. Every vessel transit consumes roughly 52 million gallons of water. During prolonged dry seasons or El Niño events, water levels plummet, forcing the ACP to enforce strict draft reductions and transit quotas. 
 
 By tracking the exact buffer between the current water level and the 84-foot "Watch Zone" or 80-foot "Severe Zone," traders can forecast freight rate spikes, rerouting economics (e.g., Cape of Good Hope diversions), and supply constraints before they are officially announced.
