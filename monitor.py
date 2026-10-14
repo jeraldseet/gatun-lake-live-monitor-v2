@@ -6,7 +6,7 @@ import csv
 
 # Target file
 LIVE_FILE = 'live_feed.csv'
-MAX_ROWS = 432 # 3 days * 24 hours * 6 runs/hour (Requested by analyst team)
+MAX_ROWS = 1008 # 7 days * 24 hours * 6 runs/hour (7 day rolling)
 
 def get_water_level():
     with sync_playwright() as p:
