@@ -12,7 +12,7 @@
         :root { 
             --bg-body: #0F172A; 
             --bg-card: #1E293B; 
-            --bg-panel: #162032; /* Slightly darker for side panel */
+            --bg-panel: #162032; 
             --text-main: #F8FAFC; 
             --text-muted: #94A3B8; 
             --accent-blue: #00D1FF;
@@ -52,41 +52,42 @@
         
         .chart-container { flex-grow: 1; position: relative; min-height: 500px; width: 100%; }
 
-        /* Right Column: Data Inspector Panel (MooMoo Style) */
+        /* Right Column: Data Inspector Panel (Redesigned) */
         .side-panel {
             background-color: var(--bg-panel);
-            padding: 20px;
+            padding: 24px 20px;
             border-radius: 8px;
             border: 1px solid var(--border-color);
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
             display: flex;
             flex-direction: column;
-            gap: 15px;
         }
 
-        .panel-header { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; letter-spacing: 1px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;}
+        .panel-header { font-size: 0.80rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; letter-spacing: 1px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;}
         
-        /* Interactive Data Points */
-        .inspect-time { font-size: 0.9rem; color: var(--text-muted); margin-bottom: -5px; }
-        .inspect-value { font-size: 2.8rem; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; line-height: 1.1; }
+        /* Hard left-alignment for scanning */
+        .inspect-time { font-size: 0.85rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px;}
+        .inspect-value { font-size: 3.5rem; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; line-height: 1; margin-bottom: 12px;}
         
-        .inspect-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            row-gap: 12px;
-            column-gap: 10px;
-            margin-top: 10px;
+        /* Constrained badge width */
+        .status-badge { display: inline-flex; align-items: center; justify-content: center; padding: 4px 12px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; width: max-content; margin-bottom: 24px;}
+        
+        /* Stacked vertical data blocks for clarity */
+        .inspect-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
         
-        .data-block { display: flex; flex-direction: column; }
-        .data-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 3px; }
-        .data-value { font-size: 0.95rem; font-weight: bold; color: var(--text-main); }
+        .data-block { display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;}
+        .data-block:last-child { border-bottom: none; }
         
-        .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; text-align: center; margin-top: 5px;}
+        .data-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;}
+        .data-value { font-size: 1rem; font-weight: bold; color: var(--text-main); }
         
-        .impact-text { font-size: 0.9rem; color: #E2E8F0; background-color: rgba(255, 255, 255, 0.03); padding: 10px; border-radius: 6px; border-left: 3px solid var(--border-color); line-height: 1.4; margin-top: auto;}
+        .impact-text { font-size: 0.9rem; color: #E2E8F0; background-color: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 6px; border-left: 3px solid var(--border-color); line-height: 1.4; margin-top: auto;}
         
-        .last-update-text { font-size: 0.75rem; color: var(--text-muted); text-align: right; margin-top: 10px; }
+        .last-update-text { font-size: 0.75rem; color: var(--text-muted); text-align: left; margin-top: 16px; }
     </style>
 </head>
 <body>
@@ -98,7 +99,7 @@
     </div>
 
     <div class="dashboard-grid">
-        <!-- LEFT PANE: CHART & TOOLBAR -->
+        <!-- LEFT PANE -->
         <div class="main-chart-area">
             <div class="toolbar">
                 <button class="tf-btn" onclick="loadDashboard('1D')">1D</button>
@@ -112,7 +113,7 @@
             </div>
         </div>
 
-        <!-- RIGHT PANE: DATA INSPECTOR -->
+        <!-- RIGHT PANE -->
         <div class="side-panel">
             <div class="panel-header">Crosshair Data Inspector</div>
             
@@ -120,7 +121,7 @@
             <div class="inspect-value" id="insp-elevation">--.--</div>
             <div class="status-badge" id="insp-badge">LOADING...</div>
 
-            <div class="inspect-grid">
+            <div class="inspect-stack">
                 <div class="data-block">
                     <span class="data-label">Range Threshold</span>
                     <span class="data-value" id="insp-range">-- ft</span>
@@ -129,7 +130,7 @@
                     <span class="data-label">Daily Transits</span>
                     <span class="data-value" id="insp-transits">--</span>
                 </div>
-                <div class="data-block" style="grid-column: span 2;">
+                <div class="data-block">
                     <span class="data-label">Max Draft Allowed</span>
                     <span class="data-value" id="insp-draft">--</span>
                 </div>
@@ -152,7 +153,6 @@
     let latestLiveTimestamp = null;
     let latestLiveValue = null;
 
-    // Custom crosshair plugin (Draws lines, updates side panel, hides default tooltip)
     const crosshairPlugin = {
         id: 'crosshair',
         afterDraw: chart => {
@@ -162,12 +162,11 @@
                 const x = activePoint.element.x;
                 const y = activePoint.element.y;
                 
-                // Draw Crosshair
                 ctx.save();
                 ctx.beginPath();
                 ctx.setLineDash([4, 4]);
                 ctx.lineWidth = 1;
-                ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.8)';
                 ctx.moveTo(x, chart.scales.y.top);
                 ctx.lineTo(x, chart.scales.y.bottom);
                 ctx.moveTo(chart.scales.x.left, y);
@@ -175,11 +174,9 @@
                 ctx.stroke();
                 ctx.restore();
 
-                // Update Side Panel based on hovered data point
                 const dataIndex = activePoint.index;
                 updateInspectorPanel(fullTimestamps[dataIndex], fullWaterLevels[dataIndex]);
             } else {
-                // If mouse leaves chart, revert side panel to absolute latest live point
                 if (latestLiveTimestamp && latestLiveValue) {
                     updateInspectorPanel(latestLiveTimestamp, latestLiveValue, true);
                 }
@@ -236,7 +233,6 @@
                     latestLiveTimestamp = liveData[liveData.length - 1].Timestamp;
                     latestLiveValue = parseFloat(liveData[liveData.length - 1].Value);
                     
-                    // Initialize side panel with live data immediately
                     updateInspectorPanel(latestLiveTimestamp, latestLiveValue, true);
                     
                     const now = new Date();
@@ -290,7 +286,6 @@
             return rowDate >= cutoffDate && rowDate <= latestDate;
         });
 
-        // Store globally for crosshair access
         fullTimestamps = filteredData.map(row => row[dateCol]);
         fullWaterLevels = filteredData.map(row => parseFloat(row[valCol]));
         
@@ -355,14 +350,19 @@
                         pointRadius: pointRadii,
                         pointBackgroundColor: pointColors,
                         pointBorderColor: 'transparent',
-                        pointHoverRadius: 0 // Disable hover dot expansion to prevent clutter
+                        pointHoverRadius: 0
                     }]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
+                    // BUG FIX: The modern interaction API allows full vertical crosshair triggering
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                        axis: 'x'
+                    },
                     plugins: {
                         legend: { display: false }, 
-                        // Completely disable default hover tooltips
                         tooltip: { enabled: false },
                         annotation: {
                             annotations: {
@@ -378,8 +378,7 @@
                     scales: {
                         y: { min: yMin, max: yMax, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
                         x: { grid: { display: false }, ticks: { color: '#94A3B8', maxRotation: 0, maxTicksLimit: 8 } }
-                    },
-                    hover: { mode: 'index', intersect: false }
+                    }
                 }
             });
         }
