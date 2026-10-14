@@ -164,6 +164,7 @@
                 <button class="tf-btn" onclick="loadDashboard('1W')">1W</button>
                 <button class="tf-btn" onclick="loadDashboard('1M')">1M</button>
                 <button class="tf-btn" onclick="loadDashboard('1Y')">1Y</button>
+                <button class="tf-btn" style="margin-left: 10px; border-color: #FBBF24; color: #FBBF24;" onclick="loadSeasonality()">Seasonal</button>
             </div>
             
             <div class="chart-container">
@@ -258,13 +259,23 @@
 </div> <!-- END container -->
 
 <script>
-    let gatunChartInstance = null;
+  let gatunChartInstance = null;
     let fullTimestamps = []; 
     let fullWaterLevels = [];
     let pollInterval = null;
     let currentTimeframe = '3D';
     let latestLiveTimestamp = null;
     let latestLiveValue = null;
+
+    // Helper: Creates background zones for all charts
+    const createZone = (min, max, color, labelText) => ({
+        type: 'box', yMin: min, yMax: max, backgroundColor: color, borderWidth: 0,
+        label: {
+            content: labelText, display: true, position: { x: 'start', y: 'center' },
+            xAdjust: 8, backgroundColor: 'rgba(15, 23, 42, 0.8)', color: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: 4, padding: 6, font: { size: 11, weight: 'bold', family: 'sans-serif' }
+        }
+    });
 
     const crosshairPlugin = {
         id: 'crosshair',
@@ -288,7 +299,19 @@
                 ctx.restore();
 
                 const dataIndex = activePoint.index;
-                updateInspectorPanel(fullTimestamps[dataIndex], fullWaterLevels[dataIndex]);
+                
+                // Handle Crosshair Inspector based on active chart type
+                if (currentTimeframe === 'SEASONAL') {
+                    const hoverDate = chart.data.labels[dataIndex];
+                    const hoverVal = chart.data.datasets[4].data[dataIndex]; // Dataset 4 is the Current Year Live line
+                    if (hoverVal) {
+                        updateInspectorPanel(hoverDate, hoverVal);
+                    } else if (latestLiveTimestamp && latestLiveValue) {
+                        updateInspectorPanel(latestLiveTimestamp, latestLiveValue, true);
+                    }
+                } else {
+                    updateInspectorPanel(fullTimestamps[dataIndex], fullWaterLevels[dataIndex]);
+                }
             } else {
                 if (latestLiveTimestamp && latestLiveValue) {
                     updateInspectorPanel(latestLiveTimestamp, latestLiveValue, true);
@@ -331,6 +354,83 @@
         document.getElementById('insp-transits').innerText = transits;
         document.getElementById('insp-draft').innerText = draft;
         document.getElementById('insp-impact').innerText = `Impact: ${impact}`;
+    }
+
+    // NEW: Load Seasonality View
+    function loadSeasonality() {
+        currentTimeframe = 'SEASONAL';
+        document.querySelectorAll('.tf-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.tf-btn[onclick="loadSeasonality()"]`).classList.add('active');
+
+        fetch('seasonality.json?_=' + new Date().getTime())
+            .then(response => response.json())
+            .then(data => {
+                if (gatunChartInstance) { gatunChartInstance.destroy(); }
+
+                const ctx = document.getElementById('gatunChart').getContext('2d');
+                gatunChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [
+                            {
+                                label: '5-Year Min', data: data.min_5yr,
+                                borderColor: 'transparent', backgroundColor: 'transparent',
+                                pointRadius: 0, fill: false, tooltip: false
+                            },
+                            {
+                                label: '5-Year Range', data: data.max_5yr,
+                                borderColor: 'transparent', backgroundColor: 'rgba(148, 163, 184, 0.15)',
+                                pointRadius: 0, fill: '-1', tooltip: false // Shaded area between Min and Max
+                            },
+                            {
+                                label: '5-Year Average', data: data.avg_5yr,
+                                borderColor: 'rgba(148, 163, 184, 0.8)', borderDash: [5, 5], borderWidth: 2,
+                                pointRadius: 0, fill: false
+                            },
+                            {
+                                label: '2023 Drought Crisis', data: data.crisis_2023,
+                                borderColor: '#EF4444', borderWidth: 2,
+                                pointRadius: 0, fill: false
+                            },
+                            {
+                                label: data.current_year_label + ' (Live)', data: data.current_year,
+                                borderColor: '#00D1FF', borderWidth: 3.5,
+                                pointRadius: 0, fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false, axis: 'x' },
+                        plugins: {
+                            legend: { 
+                                display: true, position: 'top',
+                                labels: {
+                                    color: '#94A3B8', usePointStyle: true, boxWidth: 8,
+                                    filter: function(item, chart) { return !item.text.includes('Min'); } // Hides technical bands from legend
+                                }
+                            },
+                            tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#94A3B8', bodyFont: { size: 14, weight: 'bold' } },
+                            annotation: {
+                                annotations: {
+                                    idealZone: createZone(87, 95, 'rgba(16, 185, 129, 0.08)', 'IDEAL (>87\')'),
+                                    normalZone: createZone(85, 87, 'rgba(52, 211, 153, 0.08)', 'NORMAL (85-87\')'),
+                                    watchZone: createZone(83, 85, 'rgba(251, 191, 36, 0.1)', 'WATCH (83-85\')'),
+                                    restrictedZone: createZone(80, 83, 'rgba(249, 115, 22, 0.18)', 'RESTRICTED (80-83\')'),
+                                    severeZone: createZone(79, 80, 'rgba(239, 68, 68, 0.25)', 'SEVERE (79-80\')'),
+                                    criticalZone: createZone(70, 79, 'rgba(185, 28, 28, 0.35)', 'CRITICAL (<79\')')
+                                }
+                            }
+                        },
+                        scales: {
+                            y: { min: 77, max: 89, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
+                            x: { grid: { display: false }, ticks: { color: '#94A3B8', maxTicksLimit: 12 } }
+                        }
+                    }
+                });
+                document.getElementById('last-update').innerText = `Seasonality Model Compiled.`;
+            });
     }
 
     function loadDashboard(timeframe) {
@@ -429,72 +529,55 @@
         const pointRadii = fullWaterLevels.map((_, index) => index === fullWaterLevels.length - 1 ? 6 : 0);
         const pointColors = fullWaterLevels.map((_, index) => index === fullWaterLevels.length - 1 ? '#00D1FF' : 'transparent');
 
-        if (gatunChartInstance) {
-            gatunChartInstance.data.labels = shortLabels;
-            gatunChartInstance.data.datasets[0].data = fullWaterLevels;
-            gatunChartInstance.data.datasets[0].pointRadius = pointRadii;
-            gatunChartInstance.data.datasets[0].pointBackgroundColor = pointColors;
-            gatunChartInstance.options.scales.y.min = yMin;
-            gatunChartInstance.options.scales.y.max = yMax;
-            gatunChartInstance.update(); 
-        } else {
-            const ctx = document.getElementById('gatunChart').getContext('2d');
-            
-            const createZone = (min, max, color, labelText) => ({
-                type: 'box', yMin: min, yMax: max, backgroundColor: color, borderWidth: 0,
-                label: {
-                    content: labelText, display: true, position: { x: 'start', y: 'center' },
-                    xAdjust: 8, backgroundColor: 'rgba(15, 23, 42, 0.8)', color: 'rgba(255, 255, 255, 0.95)',
-                    borderRadius: 4, padding: 6, font: { size: 11, weight: 'bold', family: 'sans-serif' }
-                }
-            });
-
-            gatunChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: shortLabels,
-                    datasets: [{
-                        label: 'Elevation',
-                        data: fullWaterLevels,
-                        borderColor: '#00D1FF', 
-                        borderWidth: 3.5,
-                        fill: false,
-                        tension: 0.1,
-                        pointRadius: pointRadii,
-                        pointBackgroundColor: pointColors,
-                        pointBorderColor: 'transparent',
-                        pointHoverRadius: 0
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false, axis: 'x' },
-                    plugins: {
-                        legend: { display: false }, 
-                        tooltip: { enabled: false },
-                        annotation: {
-                            annotations: {
-                                idealZone: createZone(87, 95, 'rgba(16, 185, 129, 0.08)', 'IDEAL (>87\')'),
-                                normalZone: createZone(85, 87, 'rgba(52, 211, 153, 0.08)', 'NORMAL (85-87\')'),
-                                watchZone: createZone(83, 85, 'rgba(251, 191, 36, 0.1)', 'WATCH (83-85\')'),
-                                restrictedZone: createZone(80, 83, 'rgba(249, 115, 22, 0.18)', 'RESTRICTED (80-83\')'),
-                                severeZone: createZone(79, 80, 'rgba(239, 68, 68, 0.25)', 'SEVERE (79-80\')'),
-                                criticalZone: createZone(70, 79, 'rgba(185, 28, 28, 0.35)', 'CRITICAL (<79\')')
-                            }
+        if (gatunChartInstance) { gatunChartInstance.destroy(); }
+        
+        const ctx = document.getElementById('gatunChart').getContext('2d');
+        gatunChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: shortLabels,
+                datasets: [{
+                    label: 'Elevation',
+                    data: fullWaterLevels,
+                    borderColor: '#00D1FF', 
+                    borderWidth: 3.5,
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: pointRadii,
+                    pointBackgroundColor: pointColors,
+                    pointBorderColor: 'transparent',
+                    pointHoverRadius: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false, axis: 'x' },
+                plugins: {
+                    legend: { display: false }, 
+                    tooltip: { enabled: false },
+                    annotation: {
+                        annotations: {
+                            idealZone: createZone(87, 95, 'rgba(16, 185, 129, 0.08)', 'IDEAL (>87\')'),
+                            normalZone: createZone(85, 87, 'rgba(52, 211, 153, 0.08)', 'NORMAL (85-87\')'),
+                            watchZone: createZone(83, 85, 'rgba(251, 191, 36, 0.1)', 'WATCH (83-85\')'),
+                            restrictedZone: createZone(80, 83, 'rgba(249, 115, 22, 0.18)', 'RESTRICTED (80-83\')'),
+                            severeZone: createZone(79, 80, 'rgba(239, 68, 68, 0.25)', 'SEVERE (79-80\')'),
+                            criticalZone: createZone(70, 79, 'rgba(185, 28, 28, 0.35)', 'CRITICAL (<79\')')
                         }
-                    },
-                    scales: {
-                        y: { min: yMin, max: yMax, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
-                        x: { grid: { display: false }, ticks: { color: '#94A3B8', maxRotation: 0, maxTicksLimit: 8 } }
                     }
+                },
+                scales: {
+                    y: { min: yMin, max: yMax, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
+                    x: { grid: { display: false }, ticks: { color: '#94A3B8', maxRotation: 0, maxTicksLimit: 8 } }
                 }
-            });
-        }
+            }
+        });
     }
 
     loadDashboard('3D');
     clearInterval(pollInterval);
     pollInterval = setInterval(() => { if (['1D', '3D', '1W'].includes(currentTimeframe)) loadDashboard(currentTimeframe); }, 60000);
+</script>  
 </script>
 </body>
 </html>
