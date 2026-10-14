@@ -9,27 +9,84 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
-        :root { --bg-body: #0F172A; --bg-card: #1E293B; --text-main: #F8FAFC; --text-muted: #94A3B8; --accent-blue: #00D1FF; }
+        :root { 
+            --bg-body: #0F172A; 
+            --bg-card: #1E293B; 
+            --bg-panel: #162032; /* Slightly darker for side panel */
+            --text-main: #F8FAFC; 
+            --text-muted: #94A3B8; 
+            --accent-blue: #00D1FF;
+            --border-color: #334155;
+        }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-body); color: var(--text-main); margin: 0; padding: 20px; }
-        .container { max-width: 1100px; margin: auto; }
-        .top-bar { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .container { max-width: 1400px; margin: auto; }
+        
+        .top-bar { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
         .top-bar h1 { margin: 0; font-size: 1.2rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: bold;}
         .live-status { font-size: 0.85rem; color: #10B981; display: flex; align-items: center; gap: 6px; font-weight: bold; }
         .live-dot { height: 8px; width: 8px; background-color: #10B981; border-radius: 50%; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-        .kpi-card { background-color: var(--bg-card); padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; }
-        .kpi-top-row { display: flex; align-items: baseline; gap: 20px; }
-        .kpi-value { font-size: 3.5rem; font-weight: 700; line-height: 1; color: var(--text-main); font-variant-numeric: tabular-nums; }
-        .kpi-badge { padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 1.1rem; border: 1px solid rgba(255,255,255,0.2); }
-        .kpi-bottom-row { display: flex; align-items: center; gap: 15px; font-size: 1rem; color: #E2E8F0; background-color: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 6px; }
-        .delta-value { font-weight: bold; }
-        .divider { color: #334155; user-select: none; }
+
+        /* Split Pane Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 3fr 1fr; /* 75% Chart / 25% Side Panel */
+            gap: 20px;
+            align-items: stretch;
+        }
+
+        /* Left Column: Chart Area */
+        .main-chart-area {
+            background-color: var(--bg-card);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+        
         .toolbar { display: flex; gap: 10px; margin-bottom: 15px; }
-        .tf-btn { background: var(--bg-card); color: var(--text-muted); border: 1px solid #334155; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: all 0.2s; }
-        .tf-btn:hover { background: #334155; color: white; }
+        .tf-btn { background: var(--bg-card); color: var(--text-muted); border: 1px solid var(--border-color); padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: all 0.2s; }
+        .tf-btn:hover { background: var(--border-color); color: white; }
         .tf-btn.active { background: rgba(0, 209, 255, 0.1); color: var(--accent-blue); border-color: var(--accent-blue); }
-        .chart-container { background-color: var(--bg-card); padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); position: relative; height: 500px; width: 100%; }
-        .last-update-text { font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; text-align: right; }
+        
+        .chart-container { flex-grow: 1; position: relative; min-height: 500px; width: 100%; }
+
+        /* Right Column: Data Inspector Panel (MooMoo Style) */
+        .side-panel {
+            background-color: var(--bg-panel);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-header { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; letter-spacing: 1px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;}
+        
+        /* Interactive Data Points */
+        .inspect-time { font-size: 0.9rem; color: var(--text-muted); margin-bottom: -5px; }
+        .inspect-value { font-size: 2.8rem; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; line-height: 1.1; }
+        
+        .inspect-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            row-gap: 12px;
+            column-gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .data-block { display: flex; flex-direction: column; }
+        .data-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 3px; }
+        .data-value { font-size: 0.95rem; font-weight: bold; color: var(--text-main); }
+        
+        .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; text-align: center; margin-top: 5px;}
+        
+        .impact-text { font-size: 0.9rem; color: #E2E8F0; background-color: rgba(255, 255, 255, 0.03); padding: 10px; border-radius: 6px; border-left: 3px solid var(--border-color); line-height: 1.4; margin-top: auto;}
+        
+        .last-update-text { font-size: 0.75rem; color: var(--text-muted); text-align: right; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -40,42 +97,62 @@
         <div class="live-status"><div class="live-dot"></div> <span id="sync-text">LIVE (Synced just now)</span></div>
     </div>
 
-    <div class="kpi-card">
-        <div class="kpi-top-row">
-            <div class="kpi-value" id="kpi-elevation">--.-- ft</div>
-            <div class="kpi-badge" id="kpi-status-badge">LOADING...</div>
+    <div class="dashboard-grid">
+        <!-- LEFT PANE: CHART & TOOLBAR -->
+        <div class="main-chart-area">
+            <div class="toolbar">
+                <button class="tf-btn" onclick="loadDashboard('1D')">1D</button>
+                <button class="tf-btn active" onclick="loadDashboard('3D')">3D</button>
+                <button class="tf-btn" onclick="loadDashboard('1W')">1W</button>
+                <button class="tf-btn" onclick="loadDashboard('1M')">1M</button>
+                <button class="tf-btn" onclick="loadDashboard('1Y')">1Y</button>
+            </div>
+            <div class="chart-container">
+                <canvas id="gatunChart"></canvas>
+            </div>
         </div>
-        <div class="kpi-bottom-row">
-            <div class="delta-value" id="kpi-delta">▲ +0.00 ft (24h)</div>
-            <span class="divider">|</span>
-            <div id="kpi-buffer">Calculating buffer...</div>
-            <span class="divider">|</span>
-            <div id="kpi-draft">Max Draft: -- ft</div>
+
+        <!-- RIGHT PANE: DATA INSPECTOR -->
+        <div class="side-panel">
+            <div class="panel-header">Crosshair Data Inspector</div>
+            
+            <div class="inspect-time" id="insp-time">Hover chart to inspect</div>
+            <div class="inspect-value" id="insp-elevation">--.--</div>
+            <div class="status-badge" id="insp-badge">LOADING...</div>
+
+            <div class="inspect-grid">
+                <div class="data-block">
+                    <span class="data-label">Range Threshold</span>
+                    <span class="data-value" id="insp-range">-- ft</span>
+                </div>
+                <div class="data-block">
+                    <span class="data-label">Daily Transits</span>
+                    <span class="data-value" id="insp-transits">--</span>
+                </div>
+                <div class="data-block" style="grid-column: span 2;">
+                    <span class="data-label">Max Draft Allowed</span>
+                    <span class="data-value" id="insp-draft">--</span>
+                </div>
+            </div>
+
+            <div class="impact-text" id="insp-impact">
+                Awaiting data payload...
+            </div>
+            <div class="last-update-text" id="last-update">Pipeline: --</div>
         </div>
     </div>
-
-    <div class="toolbar">
-        <button class="tf-btn" onclick="loadDashboard('1D')">1D</button>
-        <button class="tf-btn active" onclick="loadDashboard('3D')">3D</button>
-        <button class="tf-btn" onclick="loadDashboard('1W')">1W</button>
-        <button class="tf-btn" onclick="loadDashboard('1M')">1M</button>
-        <button class="tf-btn" onclick="loadDashboard('1Y')">1Y</button>
-    </div>
-
-    <div class="chart-container">
-        <canvas id="gatunChart"></canvas>
-    </div>
-    <div class="last-update-text" id="last-update">Data last recorded by pipeline: --</div>
 </div>
 
 <script>
     let gatunChartInstance = null;
     let fullTimestamps = []; 
+    let fullWaterLevels = [];
     let pollInterval = null;
     let currentTimeframe = '3D';
     let latestLiveTimestamp = null;
     let latestLiveValue = null;
 
+    // Custom crosshair plugin (Draws lines, updates side panel, hides default tooltip)
     const crosshairPlugin = {
         id: 'crosshair',
         afterDraw: chart => {
@@ -84,6 +161,8 @@
                 const ctx = chart.ctx;
                 const x = activePoint.element.x;
                 const y = activePoint.element.y;
+                
+                // Draw Crosshair
                 ctx.save();
                 ctx.beginPath();
                 ctx.setLineDash([4, 4]);
@@ -95,36 +174,77 @@
                 ctx.lineTo(chart.scales.x.right, y);
                 ctx.stroke();
                 ctx.restore();
+
+                // Update Side Panel based on hovered data point
+                const dataIndex = activePoint.index;
+                updateInspectorPanel(fullTimestamps[dataIndex], fullWaterLevels[dataIndex]);
+            } else {
+                // If mouse leaves chart, revert side panel to absolute latest live point
+                if (latestLiveTimestamp && latestLiveValue) {
+                    updateInspectorPanel(latestLiveTimestamp, latestLiveValue, true);
+                }
             }
         }
     };
     Chart.register(crosshairPlugin);
 
+    function updateInspectorPanel(timestamp, level, isLiveFallback = false) {
+        document.getElementById('insp-time').innerText = isLiveFallback ? `LATEST LIVE: ${timestamp}` : `HOVERED: ${timestamp}`;
+        document.getElementById('insp-elevation').innerText = level.toFixed(2);
+        
+        let badgeText = "", badgeBg = "", badgeColor = "", range = "", transits = "", draft = "", impact = "";
+
+        if (level >= 87) {
+            badgeText = "IDEAL"; badgeBg = "rgba(16, 185, 129, 0.2)"; badgeColor = "#10B981";
+            range = "> 87 ft"; transits = "38-40 vessels"; draft = "50 ft Neopanamax"; impact = "Canal operating at full capacity. No restrictions.";
+        } else if (level >= 85) {
+            badgeText = "NORMAL"; badgeBg = "rgba(52, 211, 153, 0.2)"; badgeColor = "#34D399";
+            range = "85 - 87 ft"; transits = "36-38 vessels"; draft = "50 ft Neopanamax"; impact = "Standard operations. Healthy buffer to watch zone.";
+        } else if (level >= 83) {
+            badgeText = "WATCH"; badgeBg = "rgba(251, 191, 36, 0.2)"; badgeColor = "#FBBF24";
+            range = "83 - 85 ft"; transits = "32-36 vessels"; draft = "48-50 ft Neopanamax"; impact = "Early warning phase. Minor draft reductions may be enforced.";
+        } else if (level >= 80) {
+            badgeText = "RESTRICTED"; badgeBg = "rgba(249, 115, 22, 0.2)"; badgeColor = "#F97316";
+            range = "80 - 83 ft"; transits = "28-32 vessels"; draft = "45-48 ft Neopanamax"; impact = "Moderate capacity cuts. Shippers must load conservatively.";
+        } else if (level >= 79) {
+            badgeText = "SEVERE"; badgeBg = "rgba(239, 68, 68, 0.2)"; badgeColor = "#EF4444";
+            range = "79 - 80 ft"; transits = "24-28 vessels"; draft = "44-46 ft Neopanamax"; impact = "Heavy restrictions. Significant supply chain delays.";
+        } else {
+            badgeText = "CRITICAL"; badgeBg = "rgba(185, 28, 28, 0.2)"; badgeColor = "#FCA5A5";
+            range = "< 79 ft"; transits = "22-24 vessels"; draft = "< 44 ft Neopanamax"; impact = "Maximum restrictions. Cargo diversions highly likely.";
+        }
+
+        const badge = document.getElementById('insp-badge');
+        badge.innerText = badgeText; badge.style.backgroundColor = badgeBg; badge.style.color = badgeColor;
+        
+        document.getElementById('insp-range').innerText = range;
+        document.getElementById('insp-transits').innerText = transits;
+        document.getElementById('insp-draft').innerText = draft;
+        document.getElementById('insp-impact').innerText = `Impact: ${impact}`;
+    }
+
     function loadDashboard(timeframe) {
         currentTimeframe = timeframe;
-        
         document.querySelectorAll('.tf-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`.tf-btn[onclick="loadDashboard('${timeframe}')"]`).classList.add('active');
 
-        // Always fetch live feed first to populate KPIs and grab the absolute latest datapoint
         Papa.parse("live_feed.csv?_=" + new Date().getTime(), { 
             download: true, header: true, skipEmptyLines: true,
             complete: function(res) {
                 const liveData = res.data.filter(r => r.Value !== undefined && String(r.Value).trim() !== "" && !isNaN(parseFloat(r.Value)));
                 if (liveData.length > 0) {
-                    updateKPIs(liveData);
-                    
-                    // Store the absolute latest live data point for in-memory stitching
                     latestLiveTimestamp = liveData[liveData.length - 1].Timestamp;
                     latestLiveValue = parseFloat(liveData[liveData.length - 1].Value);
+                    
+                    // Initialize side panel with live data immediately
+                    updateInspectorPanel(latestLiveTimestamp, latestLiveValue, true);
+                    
+                    const now = new Date();
+                    document.getElementById('sync-text').innerText = `LIVE (Synced ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')})`;
 
-                    // Now route chart fetching based on timeframe
                     const isHistorical = ['1M', '1Y'].includes(timeframe);
-                    if (isHistorical) {
-                        fetchHistoricalAndDraw(timeframe);
-                    } else {
-                        drawChart(liveData, timeframe, false, "Timestamp", "Value");
-                    }
+                    if (isHistorical) fetchHistoricalAndDraw(timeframe);
+                    else drawChart(liveData, timeframe, false, "Timestamp", "Value");
                 }
             }
         });
@@ -139,71 +259,19 @@
                     return row['GATUN_LAKE_LEVEL(FEET)'] !== undefined && String(row['GATUN_LAKE_LEVEL(FEET)']).trim() !== "" && !isNaN(val) && val > 0;
                 });
                 
-                // IN-MEMORY STITCHING: If we have a live point, append it to the historical array
                 if (latestLiveTimestamp && latestLiveValue) {
-                    const dateOnlyLive = latestLiveTimestamp.split(' ')[0]; // Extract YYYY-MM-DD
+                    const dateOnlyLive = latestLiveTimestamp.split(' ')[0];
                     const lastHistDate = validChartData[validChartData.length - 1]['DATE_LOG'];
-                    
-                    // Only append if the live date is newer than the last historical date to prevent duplication
                     if (dateOnlyLive !== lastHistDate) {
-                        validChartData.push({
-                            'DATE_LOG': latestLiveTimestamp, 
-                            'GATUN_LAKE_LEVEL(FEET)': latestLiveValue
-                        });
+                        validChartData.push({'DATE_LOG': latestLiveTimestamp, 'GATUN_LAKE_LEVEL(FEET)': latestLiveValue});
                     } else {
-                        // If the dates are the same, just overwrite the last historical value with the highly accurate live value
                         validChartData[validChartData.length - 1]['GATUN_LAKE_LEVEL(FEET)'] = latestLiveValue;
-                        validChartData[validChartData.length - 1]['DATE_LOG'] = latestLiveTimestamp; // Keep full timestamp for tooltip
+                        validChartData[validChartData.length - 1]['DATE_LOG'] = latestLiveTimestamp;
                     }
                 }
-
                 if (validChartData.length > 0) drawChart(validChartData, timeframe, true, "DATE_LOG", "GATUN_LAKE_LEVEL(FEET)");
             }
         });
-    }
-
-    function updateKPIs(data) {
-        const waterLevels = data.map(row => parseFloat(row.Value));
-        const currentLevel = waterLevels[waterLevels.length - 1];
-        const prevIndex = Math.max(0, waterLevels.length - 145);
-        const prevLevel = waterLevels[prevIndex];
-        const delta24h = (currentLevel - prevLevel).toFixed(2);
-        
-        const deltaEl = document.getElementById('kpi-delta');
-        if (delta24h > 0) { deltaEl.innerHTML = `▲ +${delta24h} ft (24h)`; deltaEl.style.color = '#10B981'; } 
-        else if (delta24h < 0) { deltaEl.innerHTML = `▼ ${Math.abs(delta24h)} ft (24h)`; deltaEl.style.color = '#EF4444'; } 
-        else { deltaEl.innerHTML = `▬ 0.00 ft (24h)`; deltaEl.style.color = '#94A3B8'; }
-
-        let badgeText = "", badgeBg = "", badgeColor = "#fff", bufferText = "", draftText = "";
-
-        if (currentLevel >= 87) {
-            badgeText = "IDEAL | 38-40 TRANSITS/DAY"; badgeBg = "rgba(16, 185, 129, 0.2)"; badgeColor = "#10B981";
-            bufferText = `Buffer: +${(currentLevel - 87).toFixed(2)} ft above Normal Zone`; draftText = "Max Draft: 50 ft Neopanamax";
-        } else if (currentLevel >= 85) {
-            badgeText = "NORMAL | 36-38 TRANSITS/DAY"; badgeBg = "rgba(52, 211, 153, 0.2)"; badgeColor = "#34D399";
-            bufferText = `Buffer: +${(currentLevel - 85).toFixed(2)} ft above Watch Zone`; draftText = "Max Draft: 50 ft Neopanamax";
-        } else if (currentLevel >= 83) {
-            badgeText = "WATCH | 32-36 TRANSITS/DAY"; badgeBg = "rgba(251, 191, 36, 0.2)"; badgeColor = "#FBBF24";
-            bufferText = `Buffer: +${(currentLevel - 83).toFixed(2)} ft above Restricted Zone`; draftText = "Max Draft: 48-50 ft Neopanamax";
-        } else if (currentLevel >= 80) {
-            badgeText = "RESTRICTED | 28-32 TRANSITS/DAY"; badgeBg = "rgba(249, 115, 22, 0.2)"; badgeColor = "#F97316";
-            bufferText = `Buffer: +${(currentLevel - 80).toFixed(2)} ft above Severe Zone`; draftText = "Max Draft: 45-48 ft Neopanamax";
-        } else if (currentLevel >= 79) {
-            badgeText = "SEVERE | 24-28 TRANSITS/DAY"; badgeBg = "rgba(239, 68, 68, 0.2)"; badgeColor = "#EF4444";
-            bufferText = `Buffer: +${(currentLevel - 79).toFixed(2)} ft above Critical Zone`; draftText = "Max Draft: 44-46 ft Neopanamax";
-        } else {
-            badgeText = "CRITICAL | 22-24 TRANSITS/DAY"; badgeBg = "rgba(185, 28, 28, 0.2)"; badgeColor = "#FCA5A5";
-            bufferText = `Alert: ${(79 - currentLevel).toFixed(2)} ft below Critical Threshold`; draftText = "Max Draft: < 44 ft Neopanamax";
-        }
-
-        document.getElementById('kpi-elevation').innerText = currentLevel.toFixed(2) + " ft";
-        const badge = document.getElementById('kpi-status-badge');
-        badge.innerText = badgeText; badge.style.backgroundColor = badgeBg; badge.style.color = badgeColor;
-        document.getElementById('kpi-buffer').innerText = bufferText;
-        document.getElementById('kpi-draft').innerText = draftText;
-        
-        const now = new Date();
-        document.getElementById('sync-text').innerText = `LIVE (Synced ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')})`;
     }
 
     function drawChart(data, timeframe, isHistorical, dateCol, valCol) {
@@ -222,10 +290,11 @@
             return rowDate >= cutoffDate && rowDate <= latestDate;
         });
 
+        // Store globally for crosshair access
         fullTimestamps = filteredData.map(row => row[dateCol]);
-        const waterLevels = filteredData.map(row => parseFloat(row[valCol]));
+        fullWaterLevels = filteredData.map(row => parseFloat(row[valCol]));
         
-        document.getElementById('last-update').innerText = `Data last recorded by pipeline: ${latestLiveTimestamp}`;
+        document.getElementById('last-update').innerText = `Pipeline: ${latestLiveTimestamp}`;
 
         const shortLabels = fullTimestamps.map(ts => {
             const d = new Date(ts);
@@ -240,8 +309,8 @@
 
         let yMin, yMax;
         if (['1D', '3D', '1W'].includes(timeframe)) {
-            const minVal = Math.min(...waterLevels);
-            const maxVal = Math.max(...waterLevels);
+            const minVal = Math.min(...fullWaterLevels);
+            const maxVal = Math.max(...fullWaterLevels);
             yMin = Math.floor(minVal) - 1.5; 
             yMax = Math.ceil(maxVal) + 1.5;
         } else {
@@ -249,12 +318,12 @@
             yMax = 89;
         }
 
-        const pointRadii = waterLevels.map((_, index) => index === waterLevels.length - 1 ? 6 : 0);
-        const pointColors = waterLevels.map((_, index) => index === waterLevels.length - 1 ? '#00D1FF' : 'transparent');
+        const pointRadii = fullWaterLevels.map((_, index) => index === fullWaterLevels.length - 1 ? 6 : 0);
+        const pointColors = fullWaterLevels.map((_, index) => index === fullWaterLevels.length - 1 ? '#00D1FF' : 'transparent');
 
         if (gatunChartInstance) {
             gatunChartInstance.data.labels = shortLabels;
-            gatunChartInstance.data.datasets[0].data = waterLevels;
+            gatunChartInstance.data.datasets[0].data = fullWaterLevels;
             gatunChartInstance.data.datasets[0].pointRadius = pointRadii;
             gatunChartInstance.data.datasets[0].pointBackgroundColor = pointColors;
             gatunChartInstance.options.scales.y.min = yMin;
@@ -277,8 +346,8 @@
                 data: {
                     labels: shortLabels,
                     datasets: [{
-                        label: 'Gatun Lake Elevation (ft)',
-                        data: waterLevels,
+                        label: 'Elevation',
+                        data: fullWaterLevels,
                         borderColor: '#00D1FF', 
                         borderWidth: 3.5,
                         fill: false,
@@ -286,21 +355,15 @@
                         pointRadius: pointRadii,
                         pointBackgroundColor: pointColors,
                         pointBorderColor: 'transparent',
-                        pointHoverRadius: 6
+                        pointHoverRadius: 0 // Disable hover dot expansion to prevent clutter
                     }]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false }, 
-                        tooltip: {
-                            backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#94A3B8', bodyFont: { size: 14, weight: 'bold' },
-                            intersect: false, mode: 'index',
-                            callbacks: {
-                                title: function(context) { return fullTimestamps[context[0].dataIndex]; },
-                                label: function(context) { return ` Elevation: ${context.parsed.y} ft`; }
-                            }
-                        },
+                        // Completely disable default hover tooltips
+                        tooltip: { enabled: false },
                         annotation: {
                             annotations: {
                                 idealZone: createZone(87, 95, 'rgba(16, 185, 129, 0.08)', 'IDEAL (>87\')'),
