@@ -355,15 +355,19 @@
         document.getElementById('insp-draft').innerText = draft;
         document.getElementById('insp-impact').innerText = `Impact: ${impact}`;
     }
-
-    // NEW: Load Seasonality View
+    // NEW: Load Seasonality View with Error Handling
     function loadSeasonality() {
         currentTimeframe = 'SEASONAL';
         document.querySelectorAll('.tf-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`.tf-btn[onclick="loadSeasonality()"]`).classList.add('active');
 
+        document.getElementById('last-update').innerText = `Fetching seasonality model...`;
+
         fetch('seasonality.json?_=' + new Date().getTime())
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error("seasonality.json not found");
+                return response.json();
+            })
             .then(data => {
                 if (gatunChartInstance) { gatunChartInstance.destroy(); }
 
@@ -381,7 +385,7 @@
                             {
                                 label: '5-Year Range', data: data.max_5yr,
                                 borderColor: 'transparent', backgroundColor: 'rgba(148, 163, 184, 0.15)',
-                                pointRadius: 0, fill: '-1', tooltip: false // Shaded area between Min and Max
+                                pointRadius: 0, fill: '-1', tooltip: false
                             },
                             {
                                 label: '5-Year Average', data: data.avg_5yr,
@@ -408,7 +412,7 @@
                                 display: true, position: 'top',
                                 labels: {
                                     color: '#94A3B8', usePointStyle: true, boxWidth: 8,
-                                    filter: function(item, chart) { return !item.text.includes('Min'); } // Hides technical bands from legend
+                                    filter: function(item, chart) { return !item.text.includes('Min'); }
                                 }
                             },
                             tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#94A3B8', bodyFont: { size: 14, weight: 'bold' } },
@@ -430,6 +434,12 @@
                     }
                 });
                 document.getElementById('last-update').innerText = `Seasonality Model Compiled.`;
+            })
+            .catch(error => {
+                // UI/UX Graceful Error Handling
+                console.error("Error loading seasonality:", error);
+                document.getElementById('last-update').innerText = `⚠️ Error: seasonality.json is missing.`;
+                document.getElementById('insp-impact').innerText = `Awaiting GitHub Actions to compile the seasonality model. Please ensure build_seasonality.py has run successfully.`;
             });
     }
 
