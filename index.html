@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gatun Lake Transit Capacity Monitor</title>
-    <!-- Load Chart.js, Annotation plugin, and PapaParse -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
@@ -18,7 +17,6 @@
             --accent-blue: #00D1FF;
             --border-color: #334155;
             
-            /* Status Colors */
             --color-ideal: #10B981;
             --color-normal: #34D399;
             --color-watch: #FBBF24;
@@ -36,23 +34,9 @@
         .live-dot { height: 8px; width: 8px; background-color: var(--color-ideal); border-radius: 50%; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-        /* Split Pane Layout */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 3fr 1fr;
-            gap: 20px;
-            align-items: stretch;
-        }
+        .dashboard-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; align-items: stretch; }
 
-        /* Left Column: Chart Area */
-        .main-chart-area {
-            background-color: var(--bg-card);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            display: flex;
-            flex-direction: column;
-        }
+        .main-chart-area { background-color: var(--bg-card); padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
         
         .toolbar { display: flex; gap: 10px; margin-bottom: 15px; }
         .tf-btn { background: var(--bg-card); color: var(--text-muted); border: 1px solid var(--border-color); padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: all 0.2s; }
@@ -61,25 +45,8 @@
         
         .chart-container { flex-grow: 1; position: relative; min-height: 450px; width: 100%; margin-bottom: 20px; }
 
-        /* Static Bottom Legend */
-        .risk-matrix {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 8px;
-            margin-top: auto;
-        }
-        
-        .matrix-block {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid var(--border-color);
-            border-top: 3px solid;
-            border-radius: 4px;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        
+        .risk-matrix { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: auto; }
+        .matrix-block { background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-top: 3px solid; border-radius: 4px; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
         .matrix-block.ideal { border-top-color: var(--color-ideal); }
         .matrix-block.normal { border-top-color: var(--color-normal); }
         .matrix-block.watch { border-top-color: var(--color-watch); }
@@ -93,22 +60,10 @@
         .matrix-draft { font-size: 0.7rem; color: var(--text-muted); }
         .matrix-impact { font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 6px; font-style: italic; }
 
-        /* Right Column: Data Inspector Panel */
-        .side-panel {
-            background-color: var(--bg-panel);
-            padding: 24px 20px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
-            display: flex;
-            flex-direction: column;
-        }
-
+        .side-panel { background-color: var(--bg-panel); padding: 24px 20px; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
         .panel-header { font-size: 0.80rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; letter-spacing: 1px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;}
-        
         .inspect-time { font-size: 0.85rem; color: var(--text-muted); font-weight: bold; margin-bottom: 4px;}
         
-        /* Hero Value & Unit Styling */
         .inspect-value-wrapper { display: flex; align-items: baseline; gap: 6px; margin-bottom: 12px; }
         .inspect-value { font-size: 3.5rem; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; line-height: 1; }
         .inspect-unit { font-size: 1.5rem; color: var(--text-muted); font-weight: normal; }
@@ -118,33 +73,15 @@
         .inspect-stack { display: flex; flex-direction: column; gap: 16px; }
         .data-block { display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;}
         .data-block:last-child { border-bottom: none; }
-        
         .data-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;}
         .data-value { font-size: 1rem; font-weight: bold; color: var(--text-main); }
         
         .impact-text { font-size: 0.9rem; color: #E2E8F0; background-color: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 6px; border-left: 3px solid var(--border-color); line-height: 1.4; margin-top: auto;}
         .last-update-text { font-size: 0.75rem; color: var(--text-muted); text-align: left; margin-top: 16px; }
 
-        /* Global Footer Attribution (UI/UX connect fix) */
-        .dashboard-footer {
-            margin-top: 25px;
-            text-align: right;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            padding-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        
-        .dashboard-footer a {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-weight: bold;
-            transition: color 0.2s ease-in-out;
-        }
-
-        .dashboard-footer a:hover {
-            color: var(--accent-blue);
-        }
+        .dashboard-footer { margin-top: 25px; text-align: right; font-size: 0.75rem; color: var(--text-muted); padding-top: 15px; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+        .dashboard-footer a { color: var(--text-muted); text-decoration: none; font-weight: bold; transition: color 0.2s ease-in-out; }
+        .dashboard-footer a:hover { color: var(--accent-blue); }
     </style>
 </head>
 <body>
@@ -156,7 +93,6 @@
     </div>
 
     <div class="dashboard-grid">
-        <!-- LEFT PANE -->
         <div class="main-chart-area">
             <div class="toolbar">
                 <button class="tf-btn" onclick="loadDashboard('1D')">1D</button>
@@ -171,95 +107,60 @@
                 <canvas id="gatunChart"></canvas>
             </div>
 
-            <!-- STATIC RISK MATRIX LEGEND WITH IMPACTS -->
             <div class="risk-matrix">
                 <div class="matrix-block ideal">
-                    <span class="matrix-title">Ideal</span>
-                    <span class="matrix-range">> 87 ft</span>
-                    <span class="matrix-transits">38-40 vessels</span>
-                    <span class="matrix-draft">50 ft Draft</span>
-                    <span class="matrix-impact">Full capacity ops.</span>
+                    <span class="matrix-title">Ideal</span><span class="matrix-range">> 87 ft</span>
+                    <span class="matrix-transits">38-40 vessels</span><span class="matrix-draft">50 ft Draft</span><span class="matrix-impact">Full capacity ops.</span>
                 </div>
                 <div class="matrix-block normal">
-                    <span class="matrix-title">Normal</span>
-                    <span class="matrix-range">85 - 87 ft</span>
-                    <span class="matrix-transits">36-38 vessels</span>
-                    <span class="matrix-draft">50 ft Draft</span>
-                    <span class="matrix-impact">Standard ops.</span>
+                    <span class="matrix-title">Normal</span><span class="matrix-range">85 - 87 ft</span>
+                    <span class="matrix-transits">36-38 vessels</span><span class="matrix-draft">50 ft Draft</span><span class="matrix-impact">Standard ops.</span>
                 </div>
                 <div class="matrix-block watch">
-                    <span class="matrix-title">Watch</span>
-                    <span class="matrix-range">83 - 85 ft</span>
-                    <span class="matrix-transits">32-36 vessels</span>
-                    <span class="matrix-draft">48-50 ft Draft</span>
-                    <span class="matrix-impact">Early warnings.</span>
+                    <span class="matrix-title">Watch</span><span class="matrix-range">83 - 85 ft</span>
+                    <span class="matrix-transits">32-36 vessels</span><span class="matrix-draft">48-50 ft Draft</span><span class="matrix-impact">Early warnings.</span>
                 </div>
                 <div class="matrix-block restricted">
-                    <span class="matrix-title">Restricted</span>
-                    <span class="matrix-range">80 - 83 ft</span>
-                    <span class="matrix-transits">28-32 vessels</span>
-                    <span class="matrix-draft">45-48 ft Draft</span>
-                    <span class="matrix-impact">Moderate cuts.</span>
+                    <span class="matrix-title">Restricted</span><span class="matrix-range">80 - 83 ft</span>
+                    <span class="matrix-transits">28-32 vessels</span><span class="matrix-draft">45-48 ft Draft</span><span class="matrix-impact">Moderate cuts.</span>
                 </div>
                 <div class="matrix-block severe">
-                    <span class="matrix-title">Severe</span>
-                    <span class="matrix-range">79 - 80 ft</span>
-                    <span class="matrix-transits">24-28 vessels</span>
-                    <span class="matrix-draft">44-46 ft Draft</span>
-                    <span class="matrix-impact">Heavy restrictions.</span>
+                    <span class="matrix-title">Severe</span><span class="matrix-range">79 - 80 ft</span>
+                    <span class="matrix-transits">24-28 vessels</span><span class="matrix-draft">44-46 ft Draft</span><span class="matrix-impact">Heavy restrictions.</span>
                 </div>
                 <div class="matrix-block critical">
-                    <span class="matrix-title">Critical</span>
-                    <span class="matrix-range">< 79 ft</span>
-                    <span class="matrix-transits">22-24 vessels</span>
-                    <span class="matrix-draft">< 44 ft Draft</span>
-                    <span class="matrix-impact">Max restrictions.</span>
+                    <span class="matrix-title">Critical</span><span class="matrix-range">< 79 ft</span>
+                    <span class="matrix-transits">22-24 vessels</span><span class="matrix-draft">< 44 ft Draft</span><span class="matrix-impact">Max restrictions.</span>
                 </div>
             </div>
         </div>
 
-        <!-- RIGHT PANE -->
         <div class="side-panel">
             <div class="panel-header">Crosshair Data Inspector</div>
             
             <div class="inspect-time" id="insp-time">Hover chart to inspect</div>
             <div class="inspect-value-wrapper">
                 <div class="inspect-value" id="insp-elevation">--.--</div>
-                <div class="inspect-unit">ft</div>
+                <div class="inspect-unit" id="insp-unit">ft</div>
             </div>
             <div class="status-badge" id="insp-badge">LOADING...</div>
 
-            <div class="inspect-stack">
-                <div class="data-block">
-                    <span class="data-label">Range Threshold</span>
-                    <span class="data-value" id="insp-range">-- ft</span>
-                </div>
-                <div class="data-block">
-                    <span class="data-label">Daily Transits</span>
-                    <span class="data-value" id="insp-transits">--</span>
-                </div>
-                <div class="data-block">
-                    <span class="data-label">Max Draft Allowed</span>
-                    <span class="data-value" id="insp-draft">--</span>
-                </div>
+            <div class="inspect-stack" id="insp-stack">
+                <!-- Dynamically populated based on mode -->
             </div>
 
-            <div class="impact-text" id="insp-impact">
-                Awaiting data payload...
-            </div>
+            <div class="impact-text" id="insp-impact">Awaiting data payload...</div>
             <div class="last-update-text" id="last-update">Pipeline: --</div>
         </div>
-    </div> <!-- END dashboard-grid -->
+    </div>
 
-    <!-- Global Footer Attribution -->
     <div class="dashboard-footer">
         Engineered by <a href="https://www.linkedin.com/in/jerald-seet-45943b296" target="_blank" rel="noopener noreferrer">Jerald Seet Jin</a> | <a href="https://www.linkedin.com/in/jerald-seet-45943b296" target="_blank" rel="noopener noreferrer">LinkedIn</a>
     </div>
-
-</div> <!-- END container -->
+</div>
 
 <script>
-  let gatunChartInstance = null;
+    let gatunChartInstance = null;
     let fullTimestamps = []; 
     let fullWaterLevels = [];
     let pollInterval = null;
@@ -267,14 +168,36 @@
     let latestLiveTimestamp = null;
     let latestLiveValue = null;
 
-    // Helper: Creates background zones for all charts
+    // --- Dynamic UI Functions ---
+    function setInspectorMode(mode) {
+        const stack = document.getElementById('insp-stack');
+        if (mode === 'SEASONAL') {
+            stack.innerHTML = `
+                <div class="data-block"><span class="data-label">Live Trajectory</span><span class="data-value" id="insp-live-stat">-- ft</span></div>
+                <div class="data-block"><span class="data-label">5-Year Average</span><span class="data-value" id="insp-avg">-- ft</span></div>
+                <div class="data-block"><span class="data-label">2023 Crisis Benchmark</span><span class="data-value" id="insp-crisis">-- ft</span></div>
+            `;
+        } else {
+            stack.innerHTML = `
+                <div class="data-block"><span class="data-label">Range Threshold</span><span class="data-value" id="insp-range">-- ft</span></div>
+                <div class="data-block"><span class="data-label">Daily Transits</span><span class="data-value" id="insp-transits">--</span></div>
+                <div class="data-block"><span class="data-label">Max Draft Allowed</span><span class="data-value" id="insp-draft">--</span></div>
+            `;
+        }
+    }
+
     const createZone = (min, max, color, labelText) => ({
         type: 'box', yMin: min, yMax: max, backgroundColor: color, borderWidth: 0,
-        label: {
-            content: labelText, display: true, position: { x: 'start', y: 'center' },
-            xAdjust: 8, backgroundColor: 'rgba(15, 23, 42, 0.8)', color: 'rgba(255, 255, 255, 0.95)',
-            borderRadius: 4, padding: 6, font: { size: 11, weight: 'bold', family: 'sans-serif' }
-        }
+        label: { content: labelText, display: true, position: { x: 'start', y: 'center' }, xAdjust: 8, backgroundColor: 'rgba(15, 23, 42, 0.8)', color: 'rgba(255, 255, 255, 0.95)', borderRadius: 4, padding: 6, font: { size: 11, weight: 'bold', family: 'sans-serif' } }
+    });
+
+    const getAnnotations = (isSeasonal) => ({
+        idealZone: createZone(87, 95, isSeasonal ? 'rgba(16, 185, 129, 0.02)' : 'rgba(16, 185, 129, 0.08)', 'IDEAL (>87\')'),
+        normalZone: createZone(85, 87, isSeasonal ? 'rgba(52, 211, 153, 0.02)' : 'rgba(52, 211, 153, 0.08)', 'NORMAL (85-87\')'),
+        watchZone: createZone(83, 85, isSeasonal ? 'rgba(251, 191, 36, 0.04)' : 'rgba(251, 191, 36, 0.1)', 'WATCH (83-85\')'),
+        restrictedZone: createZone(80, 83, isSeasonal ? 'rgba(249, 115, 22, 0.06)' : 'rgba(249, 115, 22, 0.18)', 'RESTRICTED (80-83\')'),
+        severeZone: createZone(79, 80, isSeasonal ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.25)', 'SEVERE (79-80\')'),
+        criticalZone: createZone(70, 79, isSeasonal ? 'rgba(185, 28, 28, 0.12)' : 'rgba(185, 28, 28, 0.35)', 'CRITICAL (<79\')')
     });
 
     const crosshairPlugin = {
@@ -299,152 +222,151 @@
                 ctx.restore();
 
                 const dataIndex = activePoint.index;
-                
-                // Handle Crosshair Inspector based on active chart type
                 if (currentTimeframe === 'SEASONAL') {
                     const hoverDate = chart.data.labels[dataIndex];
-                    const hoverVal = chart.data.datasets[4].data[dataIndex]; // Dataset 4 is the Current Year Live line
-                    if (hoverVal) {
-                        updateInspectorPanel(hoverDate, hoverVal);
-                    } else if (latestLiveTimestamp && latestLiveValue) {
-                        updateInspectorPanel(latestLiveTimestamp, latestLiveValue, true);
-                    }
+                    const liveVal = chart.data.datasets[4].data[dataIndex]; 
+                    const avgVal = chart.data.datasets[2].data[dataIndex];
+                    const crisisVal = chart.data.datasets[3].data[dataIndex];
+                    updateInspectorPanel(hoverDate, {live: liveVal, avg: avgVal, crisis: crisisVal});
                 } else {
-                    updateInspectorPanel(fullTimestamps[dataIndex], fullWaterLevels[dataIndex]);
+                    updateInspectorPanel(fullTimestamps[dataIndex], {live: fullWaterLevels[dataIndex]});
                 }
             } else {
-                if (latestLiveTimestamp && latestLiveValue) {
-                    updateInspectorPanel(latestLiveTimestamp, latestLiveValue, true);
+                if (currentTimeframe === 'SEASONAL' && chart.data.datasets[4].data) {
+                    const liveDataArr = chart.data.datasets[4].data;
+                    let lastIdx = liveDataArr.length - 1;
+                    while (lastIdx >= 0 && liveDataArr[lastIdx] === null) lastIdx--;
+                    if (lastIdx >= 0) {
+                        updateInspectorPanel(chart.data.labels[lastIdx], {
+                            live: liveDataArr[lastIdx], avg: chart.data.datasets[2].data[lastIdx], crisis: chart.data.datasets[3].data[lastIdx]
+                        }, true);
+                    }
+                } else if (latestLiveTimestamp && latestLiveValue) {
+                    updateInspectorPanel(latestLiveTimestamp, { live: latestLiveValue }, true);
                 }
             }
         }
     };
     Chart.register(crosshairPlugin);
 
-    function updateInspectorPanel(timestamp, level, isLiveFallback = false) {
-        document.getElementById('insp-time').innerText = isLiveFallback ? `LATEST LIVE: ${timestamp}` : `HOVERED: ${timestamp}`;
-        document.getElementById('insp-elevation').innerText = level.toFixed(2);
+    function updateInspectorPanel(timestamp, dataObj, isLiveFallback = false) {
+        document.getElementById('insp-time').innerText = isLiveFallback ? `LATEST LIVE: ${timestamp}` : (currentTimeframe === 'SEASONAL' ? `SEASONAL DATE: ${timestamp}` : `HOVERED: ${timestamp}`);
         
-        let badgeText = "", badgeBg = "", badgeColor = "", range = "", transits = "", draft = "", impact = "";
-
-        if (level >= 87) {
-            badgeText = "IDEAL"; badgeBg = "rgba(16, 185, 129, 0.2)"; badgeColor = "#10B981";
-            range = "> 87 ft"; transits = "38-40 vessels"; draft = "50 ft Neopanamax"; impact = "Canal operating at full capacity. No restrictions.";
-        } else if (level >= 85) {
-            badgeText = "NORMAL"; badgeBg = "rgba(52, 211, 153, 0.2)"; badgeColor = "#34D399";
-            range = "85 - 87 ft"; transits = "36-38 vessels"; draft = "50 ft Neopanamax"; impact = "Standard operations. Healthy buffer to watch zone.";
-        } else if (level >= 83) {
-            badgeText = "WATCH"; badgeBg = "rgba(251, 191, 36, 0.2)"; badgeColor = "#FBBF24";
-            range = "83 - 85 ft"; transits = "32-36 vessels"; draft = "48-50 ft Neopanamax"; impact = "Early warning phase. Minor draft reductions may be enforced.";
-        } else if (level >= 80) {
-            badgeText = "RESTRICTED"; badgeBg = "rgba(249, 115, 22, 0.2)"; badgeColor = "#F97316";
-            range = "80 - 83 ft"; transits = "28-32 vessels"; draft = "45-48 ft Neopanamax"; impact = "Moderate capacity cuts. Shippers must load conservatively.";
-        } else if (level >= 79) {
-            badgeText = "SEVERE"; badgeBg = "rgba(239, 68, 68, 0.2)"; badgeColor = "#EF4444";
-            range = "79 - 80 ft"; transits = "24-28 vessels"; draft = "44-46 ft Neopanamax"; impact = "Heavy restrictions. Significant supply chain delays.";
-        } else {
-            badgeText = "CRITICAL"; badgeBg = "rgba(185, 28, 28, 0.2)"; badgeColor = "#FCA5A5";
-            range = "< 79 ft"; transits = "22-24 vessels"; draft = "< 44 ft Neopanamax"; impact = "Maximum restrictions. Cargo diversions highly likely.";
+        let heroLevel = dataObj.live;
+        let isFuture = false;
+        
+        if (currentTimeframe === 'SEASONAL' && (dataObj.live === null || dataObj.live === undefined)) {
+            heroLevel = dataObj.avg; // Use average to calculate impact in the future
+            isFuture = true;
         }
 
-        const badge = document.getElementById('insp-badge');
-        badge.innerText = badgeText; badge.style.backgroundColor = badgeBg; badge.style.color = badgeColor;
+        if (heroLevel !== null && heroLevel !== undefined) {
+            document.getElementById('insp-elevation').innerText = heroLevel.toFixed(2);
+            document.getElementById('insp-unit').innerText = isFuture ? 'ft (Avg)' : 'ft';
+        } else {
+            document.getElementById('insp-elevation').innerText = '--.--';
+            document.getElementById('insp-unit').innerText = 'ft';
+        }
         
-        document.getElementById('insp-range').innerText = range;
-        document.getElementById('insp-transits').innerText = transits;
-        document.getElementById('insp-draft').innerText = draft;
+        let badgeText = "", badgeBg = "", badgeColor = "", range = "", transits = "", draft = "", impact = "";
+        let evalLevel = heroLevel || 0;
+
+        if (evalLevel >= 87) { badgeText = "IDEAL"; badgeBg = "rgba(16, 185, 129, 0.2)"; badgeColor = "#10B981"; range = "> 87 ft"; transits = "38-40 vessels"; draft = "50 ft Neopanamax"; impact = "Canal operating at full capacity. No restrictions."; } 
+        else if (evalLevel >= 85) { badgeText = "NORMAL"; badgeBg = "rgba(52, 211, 153, 0.2)"; badgeColor = "#34D399"; range = "85 - 87 ft"; transits = "36-38 vessels"; draft = "50 ft Neopanamax"; impact = "Standard operations. Healthy buffer to watch zone."; } 
+        else if (evalLevel >= 83) { badgeText = "WATCH"; badgeBg = "rgba(251, 191, 36, 0.2)"; badgeColor = "#FBBF24"; range = "83 - 85 ft"; transits = "32-36 vessels"; draft = "48-50 ft Neopanamax"; impact = "Early warning phase. Minor draft reductions may be enforced."; } 
+        else if (evalLevel >= 80) { badgeText = "RESTRICTED"; badgeBg = "rgba(249, 115, 22, 0.2)"; badgeColor = "#F97316"; range = "80 - 83 ft"; transits = "28-32 vessels"; draft = "45-48 ft Neopanamax"; impact = "Moderate capacity cuts. Shippers must load conservatively."; } 
+        else if (evalLevel >= 79) { badgeText = "SEVERE"; badgeBg = "rgba(239, 68, 68, 0.2)"; badgeColor = "#EF4444"; range = "79 - 80 ft"; transits = "24-28 vessels"; draft = "44-46 ft Neopanamax"; impact = "Heavy restrictions. Significant supply chain delays."; } 
+        else { badgeText = "CRITICAL"; badgeBg = "rgba(185, 28, 28, 0.2)"; badgeColor = "#FCA5A5"; range = "< 79 ft"; transits = "22-24 vessels"; draft = "< 44 ft Neopanamax"; impact = "Maximum restrictions. Cargo diversions highly likely."; }
+
+        const badge = document.getElementById('insp-badge');
+        badge.innerText = isFuture ? `${badgeText} (TYPICAL)` : badgeText;
+        badge.style.backgroundColor = badgeBg; badge.style.color = badgeColor;
+        
+        if (currentTimeframe === 'SEASONAL') {
+            const formatSpread = (live, comp) => {
+                if (!live || !comp) return '';
+                const diff = (live - comp).toFixed(2);
+                const color = diff >= 0 ? '#10B981' : '#EF4444';
+                return `<span style="color: ${color}; font-size: 0.85em; margin-left: 6px;">(${diff >= 0 ? '+' : ''}${diff} ft)</span>`;
+            };
+            document.getElementById('insp-live-stat').innerHTML = dataObj.live ? dataObj.live.toFixed(2) + ' ft' : '<span style="color: #94A3B8; font-style: italic;">Future Date</span>';
+            document.getElementById('insp-avg').innerHTML = dataObj.avg ? dataObj.avg.toFixed(2) + ' ft' + formatSpread(dataObj.live, dataObj.avg) : '--';
+            document.getElementById('insp-crisis').innerHTML = dataObj.crisis ? dataObj.crisis.toFixed(2) + ' ft' + formatSpread(dataObj.live, dataObj.crisis) : '--';
+        } else {
+            document.getElementById('insp-range').innerText = range;
+            document.getElementById('insp-transits').innerText = transits;
+            document.getElementById('insp-draft').innerText = draft;
+        }
+        
         document.getElementById('insp-impact').innerText = `Impact: ${impact}`;
     }
-    // NEW: Load Seasonality View with Error Handling
+
     function loadSeasonality() {
         currentTimeframe = 'SEASONAL';
+        setInspectorMode('SEASONAL');
         document.querySelectorAll('.tf-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`.tf-btn[onclick="loadSeasonality()"]`).classList.add('active');
-
         document.getElementById('last-update').innerText = `Fetching seasonality model...`;
 
         fetch('seasonality.json?_=' + new Date().getTime())
-            .then(response => {
-                if (!response.ok) throw new Error("seasonality.json not found");
-                return response.json();
-            })
+            .then(response => { if (!response.ok) throw new Error("Missing File"); return response.json(); })
             .then(data => {
                 if (gatunChartInstance) { gatunChartInstance.destroy(); }
-
                 const ctx = document.getElementById('gatunChart').getContext('2d');
                 gatunChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels: data.labels,
                         datasets: [
-                            {
-                                label: '5-Year Min', data: data.min_5yr,
-                                borderColor: 'transparent', backgroundColor: 'transparent',
-                                pointRadius: 0, fill: false, tooltip: false
-                            },
-                            {
-                                label: '5-Year Range', data: data.max_5yr,
-                                borderColor: 'transparent', backgroundColor: 'rgba(148, 163, 184, 0.15)',
-                                pointRadius: 0, fill: '-1', tooltip: false
-                            },
-                            {
-                                label: '5-Year Average', data: data.avg_5yr,
-                                borderColor: 'rgba(148, 163, 184, 0.8)', borderDash: [5, 5], borderWidth: 2,
-                                pointRadius: 0, fill: false
-                            },
-                            {
-                                label: '2023 Drought Crisis', data: data.crisis_2023,
-                                borderColor: '#EF4444', borderWidth: 2,
-                                pointRadius: 0, fill: false
-                            },
-                            {
-                                label: data.current_year_label + ' (Live)', data: data.current_year,
-                                borderColor: '#00D1FF', borderWidth: 3.5,
-                                pointRadius: 0, fill: false
-                            }
+                            { label: '5-Year Min', data: data.min_5yr, borderColor: 'transparent', backgroundColor: 'transparent', pointRadius: 0, fill: false, tooltip: false },
+                            { label: '5-Year Range', data: data.max_5yr, borderColor: 'transparent', backgroundColor: 'rgba(148, 163, 184, 0.15)', pointRadius: 0, fill: '-1', tooltip: false },
+                            { label: '5-Year Average', data: data.avg_5yr, borderColor: 'rgba(148, 163, 184, 0.8)', borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false },
+                            { label: '2023 Drought Crisis', data: data.crisis_2023, borderColor: '#FFFFFF', borderWidth: 2, pointRadius: 0, fill: false }, // White High Contrast Line
+                            { label: data.current_year_label + ' (Live)', data: data.current_year, borderColor: '#00D1FF', borderWidth: 3.5, pointRadius: 0, fill: false }
                         ]
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false,
                         interaction: { mode: 'index', intersect: false, axis: 'x' },
                         plugins: {
-                            legend: { 
-                                display: true, position: 'top',
-                                labels: {
-                                    color: '#94A3B8', usePointStyle: true, boxWidth: 8,
-                                    filter: function(item, chart) { return !item.text.includes('Min'); }
-                                }
-                            },
-                            tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#94A3B8', bodyFont: { size: 14, weight: 'bold' } },
-                            annotation: {
-                                annotations: {
-                                    idealZone: createZone(87, 95, 'rgba(16, 185, 129, 0.08)', 'IDEAL (>87\')'),
-                                    normalZone: createZone(85, 87, 'rgba(52, 211, 153, 0.08)', 'NORMAL (85-87\')'),
-                                    watchZone: createZone(83, 85, 'rgba(251, 191, 36, 0.1)', 'WATCH (83-85\')'),
-                                    restrictedZone: createZone(80, 83, 'rgba(249, 115, 22, 0.18)', 'RESTRICTED (80-83\')'),
-                                    severeZone: createZone(79, 80, 'rgba(239, 68, 68, 0.25)', 'SEVERE (79-80\')'),
-                                    criticalZone: createZone(70, 79, 'rgba(185, 28, 28, 0.35)', 'CRITICAL (<79\')')
-                                }
-                            }
+                            legend: { display: true, position: 'top', labels: { color: '#94A3B8', usePointStyle: true, boxWidth: 8, filter: item => !item.text.includes('Min') } },
+                            tooltip: { enabled: false },
+                            annotation: { annotations: getAnnotations(true) } // Low Opacity Zones
                         },
                         scales: {
                             y: { min: 77, max: 89, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
-                            x: { grid: { display: false }, ticks: { color: '#94A3B8', maxTicksLimit: 12 } }
+                            x: { 
+                                grid: { display: false }, 
+                                ticks: { 
+                                    color: '#94A3B8', maxRotation: 0, autoSkip: false, // Prevents random date selection
+                                    callback: function(val, index) { 
+                                        let label = this.getLabelForValue(val);
+                                        return label.includes(' 01') ? label.split(' ')[0] : ''; // Force clean month names
+                                    } 
+                                } 
+                            }
                         }
                     }
                 });
                 document.getElementById('last-update').innerText = `Seasonality Model Compiled.`;
+                
+                // Initialize inspector with latest available live data point
+                const liveDataArr = data.current_year;
+                let lastIdx = liveDataArr.length - 1;
+                while (lastIdx >= 0 && liveDataArr[lastIdx] === null) lastIdx--;
+                if (lastIdx >= 0) {
+                    updateInspectorPanel(data.labels[lastIdx], {live: liveDataArr[lastIdx], avg: data.avg_5yr[lastIdx], crisis: data.crisis_2023[lastIdx]}, true);
+                }
             })
             .catch(error => {
-                // UI/UX Graceful Error Handling
-                console.error("Error loading seasonality:", error);
+                console.error("Error:", error);
                 document.getElementById('last-update').innerText = `⚠️ Error: seasonality.json is missing.`;
-                document.getElementById('insp-impact').innerText = `Awaiting GitHub Actions to compile the seasonality model. Please ensure build_seasonality.py has run successfully.`;
             });
     }
 
     function loadDashboard(timeframe) {
         currentTimeframe = timeframe;
+        setInspectorMode('STANDARD');
         document.querySelectorAll('.tf-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`.tf-btn[onclick="loadDashboard('${timeframe}')"]`).classList.add('active');
 
@@ -456,7 +378,7 @@
                     latestLiveTimestamp = liveData[liveData.length - 1].Timestamp;
                     latestLiveValue = parseFloat(liveData[liveData.length - 1].Value);
                     
-                    updateInspectorPanel(latestLiveTimestamp, latestLiveValue, true);
+                    updateInspectorPanel(latestLiveTimestamp, {live: latestLiveValue}, true);
                     
                     const now = new Date();
                     document.getElementById('sync-text').innerText = `LIVE (Synced ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')})`;
@@ -547,16 +469,7 @@
             data: {
                 labels: shortLabels,
                 datasets: [{
-                    label: 'Elevation',
-                    data: fullWaterLevels,
-                    borderColor: '#00D1FF', 
-                    borderWidth: 3.5,
-                    fill: false,
-                    tension: 0.1,
-                    pointRadius: pointRadii,
-                    pointBackgroundColor: pointColors,
-                    pointBorderColor: 'transparent',
-                    pointHoverRadius: 0
+                    label: 'Elevation', data: fullWaterLevels, borderColor: '#00D1FF', borderWidth: 3.5, fill: false, tension: 0.1, pointRadius: pointRadii, pointBackgroundColor: pointColors, pointBorderColor: 'transparent', pointHoverRadius: 0
                 }]
             },
             options: {
@@ -565,16 +478,7 @@
                 plugins: {
                     legend: { display: false }, 
                     tooltip: { enabled: false },
-                    annotation: {
-                        annotations: {
-                            idealZone: createZone(87, 95, 'rgba(16, 185, 129, 0.08)', 'IDEAL (>87\')'),
-                            normalZone: createZone(85, 87, 'rgba(52, 211, 153, 0.08)', 'NORMAL (85-87\')'),
-                            watchZone: createZone(83, 85, 'rgba(251, 191, 36, 0.1)', 'WATCH (83-85\')'),
-                            restrictedZone: createZone(80, 83, 'rgba(249, 115, 22, 0.18)', 'RESTRICTED (80-83\')'),
-                            severeZone: createZone(79, 80, 'rgba(239, 68, 68, 0.25)', 'SEVERE (79-80\')'),
-                            criticalZone: createZone(70, 79, 'rgba(185, 28, 28, 0.35)', 'CRITICAL (<79\')')
-                        }
-                    }
+                    annotation: { annotations: getAnnotations(false) } // Standard Opacity Zones
                 },
                 scales: {
                     y: { min: yMin, max: yMax, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
@@ -587,7 +491,6 @@
     loadDashboard('3D');
     clearInterval(pollInterval);
     pollInterval = setInterval(() => { if (['1D', '3D', '1W'].includes(currentTimeframe)) loadDashboard(currentTimeframe); }, 60000);
-</script>  
 </script>
 </body>
 </html>
