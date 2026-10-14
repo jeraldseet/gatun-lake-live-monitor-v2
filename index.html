@@ -3,168 +3,260 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gatun Lake Live Transit Capacity</title>
+    <title>Gatun Lake Transit Capacity Monitor</title>
     <!-- Load Chart.js, the Annotation plugin, and PapaParse -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; text-align: center; }
-        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h1 { color: #333; }
-        p { color: #666; font-size: 14px; }
+        :root {
+            --bg-body: #0F172A; /* Deep Slate Background */
+            --bg-card: #1E293B; /* Slightly lighter card background */
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+            --accent-blue: #00D1FF; /* Electric blue for the data line */
+        }
         
-        /* Table Styling */
-        table { width: 100%; border-collapse: collapse; margin-top: 25px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #f8f9fa; font-weight: bold; color: #333; }
-        #current-status-row { font-weight: bold; }
-        .table-title { margin-top: 30px; font-size: 1.2em; color: #333; text-align: left; font-weight: bold; }
-        .latest-reading { text-align: left; font-size: 1em; color: #555; margin-bottom: 10px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-body); color: var(--text-main); margin: 0; padding: 20px; }
+        .container { max-width: 1100px; margin: auto; }
+        
+        /* Header & Live Polling Status */
+        .top-bar { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .top-bar h1 { margin: 0; font-size: 1.2rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        .live-status { font-size: 0.85rem; color: #10B981; display: flex; align-items: center; gap: 5px; font-weight: bold; }
+        .live-dot { height: 8px; width: 8px; background-color: #10B981; border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* KPI Header Card */
+        .kpi-card { background-color: var(--bg-card); padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .kpi-top-row { display: flex; align-items: baseline; gap: 20px; }
+        .kpi-value { font-size: 3.5rem; font-weight: 700; line-height: 1; color: var(--text-main); font-variant-numeric: tabular-nums; }
+        .kpi-badge { padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 1.1rem; border: 1px solid rgba(255,255,255,0.2); }
+        .kpi-bottom-row { display: flex; align-items: center; gap: 25px; font-size: 1rem; color: var(--text-muted); }
+        .delta-value { font-weight: bold; }
+
+        /* Chart Container */
+        .chart-container { background-color: var(--bg-card); padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); position: relative; height: 500px; width: 100%; }
+        
+        .last-update-text { font-size: 0.8rem; color: var(--text-muted); margin-top: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Gatun Lake Live Water Level & Transit Capacity</h1>
-    <p>Data automatically updates every 10 minutes. Refresh page for latest feed.</p>
-    
-    <canvas id="gatunChart" width="800" height="400"></canvas>
+    <div class="top-bar">
+        <h1>Gatun Lake Transit Capacity Monitor</h1>
+        <div class="live-status"><div class="live-dot"></div> <span id="sync-text">LIVE (Synced just now)</span></div>
+    </div>
 
-    <div class="table-title">Current Operational Status</div>
-    <div class="latest-reading" id="latest-reading-text">Latest Reading: Loading...</div>
-    <table>
-        <thead>
-            <tr>
-                <th>Status</th>
-                <th>Draft Allowed (Neopanamax)</th>
-                <th>Daily Transits</th>
-                <th>Operational Impact</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr id="current-status-row">
-                <td id="td-status">Loading...</td>
-                <td id="td-draft">Loading...</td>
-                <td id="td-transits">Loading...</td>
-                <td id="td-impact">Loading...</td>
-            </tr>
-        </tbody>
-    </table>
+    <!-- Trader KPI Header -->
+    <div class="kpi-card">
+        <div class="kpi-top-row">
+            <div class="kpi-value" id="kpi-elevation">--.-- ft</div>
+            <div class="kpi-badge" id="kpi-status-badge">LOADING...</div>
+        </div>
+        <div class="kpi-bottom-row">
+            <div class="delta-value" id="kpi-delta">▲ +0.00 ft (24h)</div>
+            <div id="kpi-buffer">Calculating buffer...</div>
+            <div id="kpi-draft">Draft Allowed: -- ft</div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-container">
+        <canvas id="gatunChart"></canvas>
+    </div>
+    <div class="last-update-text" id="last-update">Last record timestamp: --</div>
 </div>
 
 <script>
-    Papa.parse("live_feed.csv", {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            const data = results.data;
-            
-            const labels = data.map(row => row.Timestamp);
-            const waterLevels = data.map(row => parseFloat(row.Value));
-            
-            // Extract the most recent data point for the table
-            const currentLevel = waterLevels[waterLevels.length - 1];
-            const currentTime = labels[labels.length - 1];
-            
-            // --- Table Update Logic ---
-            document.getElementById('latest-reading-text').innerText = `Latest Reading: ${currentLevel} ft (Updated: ${currentTime})`;
-            
-            let statusText = "", draftText = "", transitText = "", impactText = "", rowColor = "";
+    let gatunChartInstance = null;
+    let fullTimestamps = []; // Store raw timestamps for tooltips
 
-            if (currentLevel >= 87) {
-                statusText = "Ideal"; draftText = "50 feet"; transitText = "38-40 vessels"; impactText = "Full capacity, no restrictions";
-                rowColor = "rgba(0, 100, 0, 0.25)";
-            } else if (currentLevel >= 85) {
-                statusText = "Normal"; draftText = "50 feet"; transitText = "36-38 vessels"; impactText = "Standard operations";
-                rowColor = "rgba(40, 167, 69, 0.25)";
-            } else if (currentLevel >= 83) {
-                statusText = "Watch"; draftText = "48-50 feet"; transitText = "32-36 vessels"; impactText = "Minor draft reductions";
-                rowColor = "rgba(255, 193, 7, 0.25)";
-            } else if (currentLevel >= 80) {
-                statusText = "Restricted"; draftText = "45-48 feet"; transitText = "28-32 vessels"; impactText = "Moderate capacity cuts";
-                rowColor = "rgba(253, 126, 20, 0.25)";
-            } else if (currentLevel >= 79) {
-                statusText = "Severe"; draftText = "44-46 feet"; transitText = "24-28 vessels"; impactText = "Heavy restrictions";
-                rowColor = "rgba(220, 53, 69, 0.25)";
-            } else {
-                statusText = "Critical"; draftText = "< 44 feet"; transitText = "22-24 vessels"; impactText = "Maximum restrictions";
-                rowColor = "rgba(139, 0, 0, 0.25)";
-            }
+    function loadData() {
+        Papa.parse("live_feed.csv?_=" + new Date().getTime(), { // Cache buster for live polling
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                const data = results.data;
+                if (data.length === 0) return;
 
-            document.getElementById('td-status').innerText = statusText;
-            document.getElementById('td-draft').innerText = draftText;
-            document.getElementById('td-transits').innerText = transitText;
-            document.getElementById('td-impact').innerText = impactText;
-            document.getElementById('current-status-row').style.backgroundColor = rowColor;
+                fullTimestamps = data.map(row => row.Timestamp);
+                const waterLevels = data.map(row => parseFloat(row.Value));
+                
+                // Clean X-Axis Labels (e.g., "13 Oct 15:10")
+                const shortLabels = fullTimestamps.map(ts => {
+                    const d = new Date(ts);
+                    if (isNaN(d)) return ts.split(' ')[1] || ts; // fallback
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const month = d.toLocaleString('default', { month: 'short' });
+                    const hours = String(d.getHours()).padStart(2, '0');
+                    const mins = String(d.getMinutes()).padStart(2, '0');
+                    return `${day} ${month} ${hours}:${mins}`;
+                });
 
-            // --- Chart Drawing Logic ---
-            const ctx = document.getElementById('gatunChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        // Main Line Dataset
-                        {
-                            label: 'Gatun Lake Level (ft)',
-                            data: waterLevels,
-                            borderColor: '#002060', // Navy blue
-                            borderWidth: 3,
-                            fill: false,
-                            tension: 0.1,
-                            pointRadius: 0
-                        },
-                        // Dummy datasets used purely to generate colored legend labels
-                        { type: 'bar', label: 'Ideal (>87ft) | 38-40 Transits', backgroundColor: 'rgba(0, 100, 0, 0.3)', data: [] },
-                        { type: 'bar', label: 'Normal (85-87ft) | 36-38 Transits', backgroundColor: 'rgba(40, 167, 69, 0.3)', data: [] },
-                        { type: 'bar', label: 'Watch (83-85ft) | 32-36 Transits', backgroundColor: 'rgba(255, 193, 7, 0.3)', data: [] },
-                        { type: 'bar', label: 'Restricted (80-83ft) | 28-32 Transits', backgroundColor: 'rgba(253, 126, 20, 0.3)', data: [] },
-                        { type: 'bar', label: 'Severe (79-80ft) | 24-28 Transits', backgroundColor: 'rgba(220, 53, 69, 0.3)', data: [] },
-                        { type: 'bar', label: 'Critical (<79ft) | 22-24 Transits', backgroundColor: 'rgba(139, 0, 0, 0.3)', data: [] }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                // Filter out the dummy bar datasets from showing on the chart if clicked
-                                filter: function(item, chart) {
-                                    return true; 
-                                }
-                            }
-                        },
-                        annotation: {
-                            annotations: {
-                                idealZone: { type: 'box', yMin: 87, yMax: 95, backgroundColor: 'rgba(0, 100, 0, 0.15)', borderWidth: 0 },
-                                normalZone: { type: 'box', yMin: 85, yMax: 87, backgroundColor: 'rgba(40, 167, 69, 0.15)', borderWidth: 0 },
-                                watchZone: { type: 'box', yMin: 83, yMax: 85, backgroundColor: 'rgba(255, 193, 7, 0.15)', borderWidth: 0 },
-                                restrictedZone: { type: 'box', yMin: 80, yMax: 83, backgroundColor: 'rgba(253, 126, 20, 0.15)', borderWidth: 0 },
-                                severeZone: { type: 'box', yMin: 79, yMax: 80, backgroundColor: 'rgba(220, 53, 69, 0.15)', borderWidth: 0 },
-                                criticalZone: { type: 'box', yMin: 70, yMax: 79, backgroundColor: 'rgba(139, 0, 0, 0.15)', borderWidth: 0 }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            min: 75,
-                            max: 90,
-                            title: { display: true, text: 'Elevation (Feet)' }
-                        },
-                        x: {
-                            title: { display: true, text: 'Timestamp (Local Time)' }
-                        }
-                    },
-                    interaction: {
-                        mode: 'index',
-                        intersect: false,
-                    }
+                // --- KPI Calculations ---
+                const currentLevel = waterLevels[waterLevels.length - 1];
+                const currentTime = fullTimestamps[fullTimestamps.length - 1];
+                
+                // Calculate 24h Delta (approx 144 points if 10-min intervals)
+                const prevIndex = Math.max(0, waterLevels.length - 145);
+                const prevLevel = waterLevels[prevIndex];
+                const delta24h = (currentLevel - prevLevel).toFixed(2);
+                
+                const deltaEl = document.getElementById('kpi-delta');
+                if (delta24h > 0) {
+                    deltaEl.innerHTML = `▲ +${delta24h} ft (24h)`;
+                    deltaEl.style.color = '#10B981'; // Green
+                } else if (delta24h < 0) {
+                    deltaEl.innerHTML = `▼ ${delta24h} ft (24h)`;
+                    deltaEl.style.color = '#EF4444'; // Red
+                } else {
+                    deltaEl.innerHTML = `▬ 0.00 ft (24h)`;
+                    deltaEl.style.color = '#94A3B8'; // Gray
                 }
-            });
-        }
-    });
+
+                // Status Logic
+                let badgeText = "", badgeBg = "", badgeColor = "#fff", bufferText = "", draftText = "";
+
+                if (currentLevel >= 87) {
+                    badgeText = "IDEAL | 38-40 TRANSITS/DAY"; badgeBg = "rgba(16, 185, 129, 0.2)"; badgeColor = "#10B981";
+                    bufferText = `Buffer: +${(currentLevel - 87).toFixed(2)} ft above Normal Zone (87.00 ft)`;
+                    draftText = "Draft Allowed: 50 ft Neopanamax";
+                } else if (currentLevel >= 85) {
+                    badgeText = "NORMAL | 36-38 TRANSITS/DAY"; badgeBg = "rgba(52, 211, 153, 0.2)"; badgeColor = "#34D399";
+                    bufferText = `Buffer: +${(currentLevel - 85).toFixed(2)} ft above Watch Zone (85.00 ft)`;
+                    draftText = "Draft Allowed: 50 ft Neopanamax";
+                } else if (currentLevel >= 83) {
+                    badgeText = "WATCH | 32-36 TRANSITS/DAY"; badgeBg = "rgba(251, 191, 36, 0.2)"; badgeColor = "#FBBF24";
+                    bufferText = `Buffer: +${(currentLevel - 83).toFixed(2)} ft above Restricted Zone (83.00 ft)`;
+                    draftText = "Draft Allowed: 48-50 ft Neopanamax";
+                } else if (currentLevel >= 80) {
+                    badgeText = "RESTRICTED | 28-32 TRANSITS/DAY"; badgeBg = "rgba(249, 115, 22, 0.2)"; badgeColor = "#F97316";
+                    bufferText = `Buffer: +${(currentLevel - 80).toFixed(2)} ft above Severe Zone (80.00 ft)`;
+                    draftText = "Draft Allowed: 45-48 ft Neopanamax";
+                } else if (currentLevel >= 79) {
+                    badgeText = "SEVERE | 24-28 TRANSITS/DAY"; badgeBg = "rgba(239, 68, 68, 0.2)"; badgeColor = "#EF4444";
+                    bufferText = `Buffer: +${(currentLevel - 79).toFixed(2)} ft above Critical Zone (79.00 ft)`;
+                    draftText = "Draft Allowed: 44-46 ft Neopanamax";
+                } else {
+                    badgeText = "CRITICAL | 22-24 TRANSITS/DAY"; badgeBg = "rgba(185, 28, 28, 0.2)"; badgeColor = "#FCA5A5";
+                    bufferText = `Alert: ${(79 - currentLevel).toFixed(2)} ft below Critical Threshold`;
+                    draftText = "Draft Allowed: < 44 ft Neopanamax";
+                }
+
+                // Update DOM elements
+                document.getElementById('kpi-elevation').innerText = currentLevel.toFixed(2) + " ft";
+                const badge = document.getElementById('kpi-status-badge');
+                badge.innerText = badgeText;
+                badge.style.backgroundColor = badgeBg;
+                badge.style.color = badgeColor;
+                document.getElementById('kpi-buffer').innerText = bufferText;
+                document.getElementById('kpi-draft').innerText = draftText;
+                document.getElementById('last-update').innerText = `Last record timestamp: ${currentTime}`;
+                
+                const now = new Date();
+                document.getElementById('sync-text').innerText = `LIVE (Synced ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')})`;
+
+                // Point styling: Only highlight the very last data point
+                const pointRadii = waterLevels.map((_, index) => index === waterLevels.length - 1 ? 6 : 0);
+                const pointColors = waterLevels.map((_, index) => index === waterLevels.length - 1 ? '#00D1FF' : 'transparent');
+
+                // --- Chart Drawing Logic ---
+                if (gatunChartInstance) {
+                    gatunChartInstance.data.labels = shortLabels;
+                    gatunChartInstance.data.datasets[0].data = waterLevels;
+                    gatunChartInstance.data.datasets[0].pointRadius = pointRadii;
+                    gatunChartInstance.data.datasets[0].pointBackgroundColor = pointColors;
+                    gatunChartInstance.update('none'); // Update without full animation
+                } else {
+                    const ctx = document.getElementById('gatunChart').getContext('2d');
+                    
+                    // Dark mode annotation config helper
+                    const createZone = (min, max, color, labelText) => ({
+                        type: 'box', yMin: min, yMax: max, backgroundColor: color, borderWidth: 0,
+                        label: {
+                            content: labelText,
+                            display: true,
+                            position: 'end',
+                            backgroundColor: 'transparent',
+                            color: 'rgba(248, 250, 252, 0.4)', // Muted text for dark background
+                            font: { size: 11, weight: 'bold' }
+                        }
+                    });
+
+                    gatunChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: shortLabels,
+                            datasets: [{
+                                label: 'Gatun Lake Elevation (ft)',
+                                data: waterLevels,
+                                borderColor: '#00D1FF', // High contrast electric blue
+                                borderWidth: 3.5,
+                                fill: false,
+                                tension: 0.1,
+                                pointRadius: pointRadii,
+                                pointBackgroundColor: pointColors,
+                                pointBorderColor: 'transparent',
+                                pointHoverRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }, // Removed cluttered legend entirely
+                                tooltip: {
+                                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                    titleColor: '#94A3B8',
+                                    bodyFont: { size: 14, weight: 'bold' },
+                                    callbacks: {
+                                        // Restore full precision timestamp on hover
+                                        title: function(context) { return fullTimestamps[context[0].dataIndex]; },
+                                        label: function(context) { return ` Elevation: ${context.parsed.y} ft`; }
+                                    }
+                                },
+                                annotation: {
+                                    annotations: {
+                                        idealZone: createZone(87, 95, 'rgba(16, 185, 129, 0.1)', 'IDEAL (>87\')'),
+                                        normalZone: createZone(85, 87, 'rgba(52, 211, 153, 0.08)', 'NORMAL (85-87\')'),
+                                        watchZone: createZone(83, 85, 'rgba(251, 191, 36, 0.08)', 'WATCH (83-85\')'),
+                                        restrictedZone: createZone(80, 83, 'rgba(249, 115, 22, 0.08)', 'RESTRICTED (80-83\')'),
+                                        severeZone: createZone(79, 80, 'rgba(239, 68, 68, 0.1)', 'SEVERE (79-80\')'),
+                                        criticalZone: createZone(70, 79, 'rgba(185, 28, 28, 0.15)', 'CRITICAL (<79\')')
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    min: 75, max: 90,
+                                    grid: { color: '#334155' }, // Dark mode gridlines
+                                    ticks: { color: '#94A3B8', font: { weight: 'bold' } }
+                                },
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { 
+                                        color: '#94A3B8', 
+                                        maxRotation: 0, // Force horizontal labels
+                                        maxTicksLimit: 8 // Prevent label crowding
+                                    }
+                                }
+                            },
+                            interaction: { mode: 'index', intersect: false }
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    // Initial load
+    loadData();
+    // Silent polling every 60 seconds
+    setInterval(loadData, 60000);
+
 </script>
 
 </body>
