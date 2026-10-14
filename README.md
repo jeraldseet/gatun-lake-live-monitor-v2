@@ -6,7 +6,7 @@
 **Live Dashboard:** [https://jeraldseet.github.io/gatun-lake-live-monitor-v2/](https://jeraldseet.github.io/gatun-lake-live-monitor-v2/)
 
 ## Executive Summary
-An institutional-grade, automated monitoring dashboard designed to track Panama Canal freshwater levels and visualize transit capacity restrictions in real-time. 
+An automated monitoring dashboard designed to track Panama Canal freshwater levels and visualize transit capacity restrictions in real-time. 
 
 Built for commodity traders and freight analysts, this tool automatically scrapes 10-minute high-resolution data alongside macro historical trends to forecast Neopanamax draft restrictions, daily vessel quotas, and potential supply chain bottlenecks across energy, grain, and container markets.
 
