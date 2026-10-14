@@ -25,9 +25,12 @@ jobs:
       - name: Run Daily Append Script
         run: python daily_append_historical.py
 
+      - name: Compile Seasonality Model
+        run: python build_seasonality.py
+
       - name: Commit and Push Changes
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
-          git add Download_Gatun_Lake_Water_Level_History.csv
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Automated daily historical data append" && git push)
+          git add Download_Gatun_Lake_Water_Level_History.csv seasonality.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Automated daily append and seasonality update" && git push)
