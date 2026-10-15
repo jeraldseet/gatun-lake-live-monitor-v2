@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gatun Lake Transit Capacity Monitor</title>
+    <!-- Load Chart.js, Annotation plugin, Zoom plugin (with Hammer.js for gestures), and PapaParse -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root { 
@@ -38,12 +41,15 @@
 
         .main-chart-area { background-color: var(--bg-card); padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
         
-        .toolbar { display: flex; gap: 10px; margin-bottom: 15px; }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
         .tf-btn { background: var(--bg-card); color: var(--text-muted); border: 1px solid var(--border-color); padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: all 0.2s; }
         .tf-btn:hover { background: var(--border-color); color: white; }
         .tf-btn.active { background: rgba(0, 209, 255, 0.1); color: var(--accent-blue); border-color: var(--accent-blue); }
+        .zoom-hint { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); font-style: italic; }
         
-        .chart-container { flex-grow: 1; position: relative; min-height: 450px; width: 100%; margin-bottom: 20px; }
+        /* Cursor styling for drag interactions */
+        .chart-container { flex-grow: 1; position: relative; min-height: 450px; width: 100%; margin-bottom: 20px; cursor: grab; }
+        .chart-container:active { cursor: grabbing; }
 
         .risk-matrix { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: auto; }
         .matrix-block { background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-top: 3px solid; border-radius: 4px; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
@@ -101,6 +107,7 @@
                 <button class="tf-btn" onclick="loadDashboard('1M')">1M</button>
                 <button class="tf-btn" onclick="loadDashboard('1Y')">1Y</button>
                 <button class="tf-btn" style="margin-left: 10px; border-color: #FBBF24; color: #FBBF24;" onclick="loadSeasonality()">Seasonal</button>
+                <span class="zoom-hint">Scroll to zoom &bull; Click and drag to pan</span>
             </div>
             
             <div class="chart-container">
@@ -256,7 +263,7 @@
         let isFuture = false;
         
         if (currentTimeframe === 'SEASONAL' && (dataObj.live === null || dataObj.live === undefined)) {
-            heroLevel = dataObj.avg; // Use average to calculate impact in the future
+            heroLevel = dataObj.avg; 
             isFuture = true;
         }
 
@@ -321,7 +328,7 @@
                             { label: '5-Year Min', data: data.min_5yr, borderColor: 'transparent', backgroundColor: 'transparent', pointRadius: 0, fill: false, tooltip: false },
                             { label: '5-Year Range', data: data.max_5yr, borderColor: 'transparent', backgroundColor: 'rgba(148, 163, 184, 0.15)', pointRadius: 0, fill: '-1', tooltip: false },
                             { label: '5-Year Average', data: data.avg_5yr, borderColor: 'rgba(148, 163, 184, 0.8)', borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false },
-                            { label: '2023 Drought Crisis', data: data.crisis_2023, borderColor: '#FFFFFF', borderWidth: 2, pointRadius: 0, fill: false }, // White High Contrast Line
+                            { label: '2023 Drought Crisis', data: data.crisis_2023, borderColor: '#FFFFFF', borderWidth: 2, pointRadius: 0, fill: false }, 
                             { label: data.current_year_label + ' (Live)', data: data.current_year, borderColor: '#00D1FF', borderWidth: 3.5, pointRadius: 0, fill: false }
                         ]
                     },
@@ -331,17 +338,21 @@
                         plugins: {
                             legend: { display: true, position: 'top', labels: { color: '#94A3B8', usePointStyle: true, boxWidth: 8, filter: item => !item.text.includes('Min') } },
                             tooltip: { enabled: false },
-                            annotation: { annotations: getAnnotations(true) } // Low Opacity Zones
+                            annotation: { annotations: getAnnotations(true) }, 
+                            zoom: {
+                                pan: { enabled: true, mode: 'x', threshold: 10 },
+                                zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'x' }
+                            }
                         },
                         scales: {
                             y: { min: 77, max: 89, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
                             x: { 
                                 grid: { display: false }, 
                                 ticks: { 
-                                    color: '#94A3B8', maxRotation: 0, autoSkip: false, // Prevents random date selection
+                                    color: '#94A3B8', maxRotation: 0, autoSkip: false,
                                     callback: function(val, index) { 
                                         let label = this.getLabelForValue(val);
-                                        return label.includes(' 01') ? label.split(' ')[0] : ''; // Force clean month names
+                                        return label.includes(' 01') ? label.split(' ')[0] : ''; 
                                     } 
                                 } 
                             }
@@ -350,7 +361,6 @@
                 });
                 document.getElementById('last-update').innerText = `Seasonality Model Compiled.`;
                 
-                // Initialize inspector with latest available live data point
                 const liveDataArr = data.current_year;
                 let lastIdx = liveDataArr.length - 1;
                 while (lastIdx >= 0 && liveDataArr[lastIdx] === null) lastIdx--;
@@ -383,15 +393,13 @@
                     const now = new Date();
                     document.getElementById('sync-text').innerText = `LIVE (Synced ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')})`;
 
-                    const isHistorical = ['1M', '1Y'].includes(timeframe);
-                    if (isHistorical) fetchHistoricalAndDraw(timeframe);
-                    else drawChart(liveData, timeframe, false, "Timestamp", "Value");
+                    fetchHistoricalAndDraw(timeframe, liveData);
                 }
             }
         });
     }
 
-    function fetchHistoricalAndDraw(timeframe) {
+    function fetchHistoricalAndDraw(timeframe, liveData) {
         Papa.parse("Download_Gatun_Lake_Water_Level_History.csv", { 
             download: true, header: true, skipEmptyLines: true,
             complete: function(res) {
@@ -418,17 +426,22 @@
     function drawChart(data, timeframe, isHistorical, dateCol, valCol) {
         const latestDateStr = data[data.length - 1][dateCol];
         const latestDate = new Date(latestDateStr);
-        let cutoffDate = new Date(latestDate);
+        
+        // Window Calculation: Define what the user *initially* sees
+        let viewCutoffDate = new Date(latestDate);
+        if (timeframe === '1D') viewCutoffDate.setDate(latestDate.getDate() - 1);
+        if (timeframe === '3D') viewCutoffDate.setDate(latestDate.getDate() - 3);
+        if (timeframe === '1W') viewCutoffDate.setDate(latestDate.getDate() - 7);
+        if (timeframe === '1M') viewCutoffDate.setMonth(latestDate.getMonth() - 1);
+        if (timeframe === '1Y') viewCutoffDate.setFullYear(latestDate.getFullYear() - 1);
 
-        if (timeframe === '1D') cutoffDate.setDate(latestDate.getDate() - 1);
-        if (timeframe === '3D') cutoffDate.setDate(latestDate.getDate() - 3);
-        if (timeframe === '1W') cutoffDate.setDate(latestDate.getDate() - 7);
-        if (timeframe === '1M') cutoffDate.setMonth(latestDate.getMonth() - 1);
-        if (timeframe === '1Y') cutoffDate.setFullYear(latestDate.getFullYear() - 1);
+        // Buffer Calculation: Load the past 2 years into memory for dragging
+        let bufferCutoffDate = new Date(latestDate);
+        bufferCutoffDate.setFullYear(latestDate.getFullYear() - 2);
 
         const filteredData = data.filter(row => {
             const rowDate = new Date(row[dateCol]);
-            return rowDate >= cutoffDate && rowDate <= latestDate;
+            return rowDate >= bufferCutoffDate && rowDate <= latestDate;
         });
 
         fullTimestamps = filteredData.map(row => row[dateCol]);
@@ -447,10 +460,18 @@
             return `${day} ${month} ${hours}:${mins}`;
         });
 
+        // Determine the array index corresponding to the initial view window
+        let viewMinIndex = 0;
+        for (let i = 0; i < fullTimestamps.length; i++) {
+            if (new Date(fullTimestamps[i]) >= viewCutoffDate) { viewMinIndex = i; break; }
+        }
+
+        // Calculate Y-axis strictly based on the visible data window to avoid squishing
+        const viewportLevels = fullWaterLevels.slice(viewMinIndex);
         let yMin, yMax;
         if (['1D', '3D', '1W'].includes(timeframe)) {
-            const minVal = Math.min(...fullWaterLevels);
-            const maxVal = Math.max(...fullWaterLevels);
+            const minVal = Math.min(...viewportLevels);
+            const maxVal = Math.max(...viewportLevels);
             yMin = Math.floor(minVal) - 1.5; 
             yMax = Math.ceil(maxVal) + 1.5;
         } else {
@@ -478,11 +499,20 @@
                 plugins: {
                     legend: { display: false }, 
                     tooltip: { enabled: false },
-                    annotation: { annotations: getAnnotations(false) } // Standard Opacity Zones
+                    annotation: { annotations: getAnnotations(false) },
+                    zoom: {
+                        pan: { enabled: true, mode: 'x', threshold: 10 },
+                        zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'x' }
+                    }
                 },
                 scales: {
                     y: { min: yMin, max: yMax, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
-                    x: { grid: { display: false }, ticks: { color: '#94A3B8', maxRotation: 0, maxTicksLimit: 8 } }
+                    x: { 
+                        min: shortLabels[viewMinIndex], // Sets the visual crop
+                        max: shortLabels[shortLabels.length - 1],
+                        grid: { display: false }, 
+                        ticks: { color: '#94A3B8', maxRotation: 0, maxTicksLimit: 8 } 
+                    }
                 }
             }
         });
