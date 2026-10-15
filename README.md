@@ -1,6 +1,6 @@
 # Gatun Lake Water Level Monitoring System
 
-**Author:** Jerald Seet Jin | [LinkedIn](www.linkedin.com/in/jerald-seet-45943b296)
+**Author:** Jerald Seet Jin | [LinkedIn](https://www.linkedin.com/in/jerald-seet-45943b296)
 
 **Date:** 14/10/2026  
 
