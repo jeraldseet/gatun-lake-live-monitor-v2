@@ -1,6 +1,7 @@
 # Gatun Lake Water Level Monitoring System
 
 **Author:** Jerald Seet Jin | [LinkedIn](www.linkedin.com/in/jerald-seet-45943b296)
+
 **Date:** 14/10/2026  
 
 **Live Dashboard:** [https://jeraldseet.github.io/gatun-lake-live-monitor-v2/](https://jeraldseet.github.io/gatun-lake-live-monitor-v2/)
