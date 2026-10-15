@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gatun Lake Transit Capacity Monitor</title>
-    <!-- Load Chart.js, Annotation plugin, Zoom plugin (with Hammer.js for gestures), and PapaParse -->
+    <!-- Core ChartJS, Zoom, Annotation, PapaParse, and Date Adapters -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root { 
@@ -46,8 +47,9 @@
         .tf-btn:hover { background: var(--border-color); color: white; }
         .tf-btn.active { background: rgba(0, 209, 255, 0.1); color: var(--accent-blue); border-color: var(--accent-blue); }
         .zoom-hint { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); font-style: italic; }
-        
-        /* Cursor styling for drag interactions */
+        .reset-btn { margin-left: 15px; padding: 4px 14px; font-size: 0.85rem; background: rgba(255,255,255,0.05); color: var(--text-main); }
+        .reset-btn:hover { background: var(--border-color); color: var(--accent-blue); }
+
         .chart-container { flex-grow: 1; position: relative; min-height: 450px; width: 100%; margin-bottom: 20px; cursor: grab; }
         .chart-container:active { cursor: grabbing; }
 
@@ -108,6 +110,9 @@
                 <button class="tf-btn" onclick="loadDashboard('1Y')">1Y</button>
                 <button class="tf-btn" style="margin-left: 10px; border-color: #FBBF24; color: #FBBF24;" onclick="loadSeasonality()">Seasonal</button>
                 <span class="zoom-hint">Scroll to zoom &bull; Click and drag to pan</span>
+                
+                <!-- MooMoo Style Snap-To-Live Button -->
+                <button class="tf-btn reset-btn" onclick="resetChartZoom()" title="Snap to Latest Data">►|</button>
             </div>
             
             <div class="chart-container">
@@ -152,9 +157,7 @@
             </div>
             <div class="status-badge" id="insp-badge">LOADING...</div>
 
-            <div class="inspect-stack" id="insp-stack">
-                <!-- Dynamically populated based on mode -->
-            </div>
+            <div class="inspect-stack" id="insp-stack"></div>
 
             <div class="impact-text" id="insp-impact">Awaiting data payload...</div>
             <div class="last-update-text" id="last-update">Pipeline: --</div>
@@ -175,7 +178,17 @@
     let latestLiveTimestamp = null;
     let latestLiveValue = null;
 
-    // --- Dynamic UI Functions ---
+    function resetChartZoom() {
+        if (gatunChartInstance) {
+            gatunChartInstance.resetZoom();
+            if (currentTimeframe === 'SEASONAL') {
+                loadSeasonality();
+            } else {
+                loadDashboard(currentTimeframe);
+            }
+        }
+    }
+
     function setInspectorMode(mode) {
         const stack = document.getElementById('insp-stack');
         if (mode === 'SEASONAL') {
@@ -236,7 +249,9 @@
                     const crisisVal = chart.data.datasets[3].data[dataIndex];
                     updateInspectorPanel(hoverDate, {live: liveVal, avg: avgVal, crisis: crisisVal});
                 } else {
-                    updateInspectorPanel(fullTimestamps[dataIndex], {live: fullWaterLevels[dataIndex]});
+                    const ts = fullTimestamps[dataIndex];
+                    const niceDate = new Date(ts).toLocaleString('default', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    updateInspectorPanel(niceDate, {live: fullWaterLevels[dataIndex]});
                 }
             } else {
                 if (currentTimeframe === 'SEASONAL' && chart.data.datasets[4].data) {
@@ -244,9 +259,7 @@
                     let lastIdx = liveDataArr.length - 1;
                     while (lastIdx >= 0 && liveDataArr[lastIdx] === null) lastIdx--;
                     if (lastIdx >= 0) {
-                        updateInspectorPanel(chart.data.labels[lastIdx], {
-                            live: liveDataArr[lastIdx], avg: chart.data.datasets[2].data[lastIdx], crisis: chart.data.datasets[3].data[lastIdx]
-                        }, true);
+                        updateInspectorPanel(chart.data.labels[lastIdx], { live: liveDataArr[lastIdx], avg: chart.data.datasets[2].data[lastIdx], crisis: chart.data.datasets[3].data[lastIdx] }, true);
                     }
                 } else if (latestLiveTimestamp && latestLiveValue) {
                     updateInspectorPanel(latestLiveTimestamp, { live: latestLiveValue }, true);
@@ -339,22 +352,13 @@
                             legend: { display: true, position: 'top', labels: { color: '#94A3B8', usePointStyle: true, boxWidth: 8, filter: item => !item.text.includes('Min') } },
                             tooltip: { enabled: false },
                             annotation: { annotations: getAnnotations(true) }, 
-                            zoom: {
-                                pan: { enabled: true, mode: 'x', threshold: 10 },
-                                zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'x' }
-                            }
+                            zoom: { pan: { enabled: true, mode: 'x', threshold: 10 }, zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'x' } }
                         },
                         scales: {
                             y: { min: 77, max: 89, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
                             x: { 
                                 grid: { display: false }, 
-                                ticks: { 
-                                    color: '#94A3B8', maxRotation: 0, autoSkip: false,
-                                    callback: function(val, index) { 
-                                        let label = this.getLabelForValue(val);
-                                        return label.includes(' 01') ? label.split(' ')[0] : ''; 
-                                    } 
-                                } 
+                                ticks: { color: '#94A3B8', maxRotation: 0, autoSkip: false, callback: function(val, index) { let label = this.getLabelForValue(val); return label.includes(' 01') ? label.split(' ')[0] : ''; } } 
                             }
                         }
                     }
@@ -364,14 +368,9 @@
                 const liveDataArr = data.current_year;
                 let lastIdx = liveDataArr.length - 1;
                 while (lastIdx >= 0 && liveDataArr[lastIdx] === null) lastIdx--;
-                if (lastIdx >= 0) {
-                    updateInspectorPanel(data.labels[lastIdx], {live: liveDataArr[lastIdx], avg: data.avg_5yr[lastIdx], crisis: data.crisis_2023[lastIdx]}, true);
-                }
+                if (lastIdx >= 0) updateInspectorPanel(data.labels[lastIdx], {live: liveDataArr[lastIdx], avg: data.avg_5yr[lastIdx], crisis: data.crisis_2023[lastIdx]}, true);
             })
-            .catch(error => {
-                console.error("Error:", error);
-                document.getElementById('last-update').innerText = `⚠️ Error: seasonality.json is missing.`;
-            });
+            .catch(error => { console.error("Error:", error); document.getElementById('last-update').innerText = `⚠️ Error: seasonality.json is missing.`; });
     }
 
     function loadDashboard(timeframe) {
@@ -418,16 +417,27 @@
                         validChartData[validChartData.length - 1]['DATE_LOG'] = latestLiveTimestamp;
                     }
                 }
-                if (validChartData.length > 0) drawChart(validChartData, timeframe, true, "DATE_LOG", "GATUN_LAKE_LEVEL(FEET)");
+                if (validChartData.length > 0) drawChart(validChartData, timeframe);
             }
         });
     }
 
-    function drawChart(data, timeframe, isHistorical, dateCol, valCol) {
+    function drawChart(data, timeframe) {
+        const dateCol = "DATE_LOG";
+        const valCol = "GATUN_LAKE_LEVEL(FEET)";
+        
         const latestDateStr = data[data.length - 1][dateCol];
         const latestDate = new Date(latestDateStr);
         
-        // Window Calculation: Define what the user *initially* sees
+        // 1. Right Margin / Forward Padding (Fixes the 1D Cling)
+        let futureDate = new Date(latestDate);
+        if (timeframe === '1D') futureDate.setHours(latestDate.getHours() + 2);
+        if (timeframe === '3D') futureDate.setHours(latestDate.getHours() + 6);
+        if (timeframe === '1W') futureDate.setHours(latestDate.getHours() + 12);
+        if (timeframe === '1M') futureDate.setDate(latestDate.getDate() + 2);
+        if (timeframe === '1Y') futureDate.setDate(latestDate.getDate() + 14);
+
+        // 2. Strict Left Windowing (Fixes the 1W Collapsing)
         let viewCutoffDate = new Date(latestDate);
         if (timeframe === '1D') viewCutoffDate.setDate(latestDate.getDate() - 1);
         if (timeframe === '3D') viewCutoffDate.setDate(latestDate.getDate() - 3);
@@ -435,7 +445,7 @@
         if (timeframe === '1M') viewCutoffDate.setMonth(latestDate.getMonth() - 1);
         if (timeframe === '1Y') viewCutoffDate.setFullYear(latestDate.getFullYear() - 1);
 
-        // Buffer Calculation: Load the past 2 years into memory for dragging
+        // Load 2 years of history into memory for fluid background panning
         let bufferCutoffDate = new Date(latestDate);
         bufferCutoffDate.setFullYear(latestDate.getFullYear() - 2);
 
@@ -449,34 +459,22 @@
         
         document.getElementById('last-update').innerText = `Pipeline: ${latestLiveTimestamp}`;
 
-        const shortLabels = fullTimestamps.map(ts => {
-            const d = new Date(ts);
-            if (isNaN(d)) return ts; 
-            const day = String(d.getDate()).padStart(2, '0');
-            const month = d.toLocaleString('default', { month: 'short' });
-            if (isHistorical) return `${day} ${month} '${String(d.getFullYear()).slice(-2)}`;
-            const hours = String(d.getHours()).padStart(2, '0');
-            const mins = String(d.getMinutes()).padStart(2, '0');
-            return `${day} ${month} ${hours}:${mins}`;
-        });
-
-        // Determine the array index corresponding to the initial view window
-        let viewMinIndex = 0;
+        // Determine Y-axis scaling based strictly on the visible window, not the hidden buffer
+        let visibleLevels = [];
         for (let i = 0; i < fullTimestamps.length; i++) {
-            if (new Date(fullTimestamps[i]) >= viewCutoffDate) { viewMinIndex = i; break; }
+            if (new Date(fullTimestamps[i]) >= viewCutoffDate) {
+                visibleLevels.push(fullWaterLevels[i]);
+            }
         }
 
-        // Calculate Y-axis strictly based on the visible data window to avoid squishing
-        const viewportLevels = fullWaterLevels.slice(viewMinIndex);
         let yMin, yMax;
-        if (['1D', '3D', '1W'].includes(timeframe)) {
-            const minVal = Math.min(...viewportLevels);
-            const maxVal = Math.max(...viewportLevels);
+        if (['1D', '3D', '1W'].includes(timeframe) && visibleLevels.length > 0) {
+            const minVal = Math.min(...visibleLevels);
+            const maxVal = Math.max(...visibleLevels);
             yMin = Math.floor(minVal) - 1.5; 
             yMax = Math.ceil(maxVal) + 1.5;
         } else {
-            yMin = 77;
-            yMax = 89;
+            yMin = 77; yMax = 89;
         }
 
         const pointRadii = fullWaterLevels.map((_, index) => index === fullWaterLevels.length - 1 ? 6 : 0);
@@ -488,10 +486,8 @@
         gatunChartInstance = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: shortLabels,
-                datasets: [{
-                    label: 'Elevation', data: fullWaterLevels, borderColor: '#00D1FF', borderWidth: 3.5, fill: false, tension: 0.1, pointRadius: pointRadii, pointBackgroundColor: pointColors, pointBorderColor: 'transparent', pointHoverRadius: 0
-                }]
+                labels: fullTimestamps, 
+                datasets: [{ label: 'Elevation', data: fullWaterLevels, borderColor: '#00D1FF', borderWidth: 3.5, fill: false, tension: 0.1, pointRadius: pointRadii, pointBackgroundColor: pointColors, pointBorderColor: 'transparent', pointHoverRadius: 0 }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
@@ -500,16 +496,15 @@
                     legend: { display: false }, 
                     tooltip: { enabled: false },
                     annotation: { annotations: getAnnotations(false) },
-                    zoom: {
-                        pan: { enabled: true, mode: 'x', threshold: 10 },
-                        zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'x' }
-                    }
+                    zoom: { pan: { enabled: true, mode: 'x', threshold: 10 }, zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'x' } }
                 },
                 scales: {
                     y: { min: yMin, max: yMax, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
                     x: { 
-                        min: shortLabels[viewMinIndex], // Sets the visual crop
-                        max: shortLabels[shortLabels.length - 1],
+                        type: 'time', // Forces strict chronological scaling
+                        time: { tooltipFormat: 'MMM d, HH:mm', displayFormats: { hour: 'MMM d HH:mm', day: 'MMM d' } },
+                        min: viewCutoffDate.getTime(),
+                        max: futureDate.getTime(),
                         grid: { display: false }, 
                         ticks: { color: '#94A3B8', maxRotation: 0, maxTicksLimit: 8 } 
                     }
