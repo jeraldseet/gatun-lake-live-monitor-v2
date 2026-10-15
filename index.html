@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gatun Lake Transit Capacity Monitor</title>
-    <!-- Core ChartJS, Zoom, Annotation, PapaParse, and Date Adapters -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
@@ -111,7 +110,6 @@
                 <button class="tf-btn" style="margin-left: 10px; border-color: #FBBF24; color: #FBBF24;" onclick="loadSeasonality()">Seasonal</button>
                 <span class="zoom-hint">Scroll to zoom &bull; Click and drag to pan</span>
                 
-                <!-- MooMoo Style Snap-To-Live Button -->
                 <button class="tf-btn reset-btn" onclick="resetChartZoom()" title="Snap to Latest Data">►|</button>
             </div>
             
@@ -352,7 +350,8 @@
                             legend: { display: true, position: 'top', labels: { color: '#94A3B8', usePointStyle: true, boxWidth: 8, filter: item => !item.text.includes('Min') } },
                             tooltip: { enabled: false },
                             annotation: { annotations: getAnnotations(true) }, 
-                            zoom: { pan: { enabled: true, mode: 'x', threshold: 10 }, zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'x' } }
+                            // OMNIDIRECTIONAL PAN & ZOOM ACTIVATED ('xy')
+                            zoom: { pan: { enabled: true, mode: 'xy', threshold: 5 }, zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'xy' } }
                         },
                         scales: {
                             y: { min: 77, max: 89, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
@@ -429,7 +428,6 @@
         const latestDateStr = data[data.length - 1][dateCol];
         const latestDate = new Date(latestDateStr);
         
-        // 1. Right Margin / Forward Padding (Fixes the 1D Cling)
         let futureDate = new Date(latestDate);
         if (timeframe === '1D') futureDate.setHours(latestDate.getHours() + 2);
         if (timeframe === '3D') futureDate.setHours(latestDate.getHours() + 6);
@@ -437,7 +435,6 @@
         if (timeframe === '1M') futureDate.setDate(latestDate.getDate() + 2);
         if (timeframe === '1Y') futureDate.setDate(latestDate.getDate() + 14);
 
-        // 2. Strict Left Windowing (Fixes the 1W Collapsing)
         let viewCutoffDate = new Date(latestDate);
         if (timeframe === '1D') viewCutoffDate.setDate(latestDate.getDate() - 1);
         if (timeframe === '3D') viewCutoffDate.setDate(latestDate.getDate() - 3);
@@ -445,7 +442,6 @@
         if (timeframe === '1M') viewCutoffDate.setMonth(latestDate.getMonth() - 1);
         if (timeframe === '1Y') viewCutoffDate.setFullYear(latestDate.getFullYear() - 1);
 
-        // Load 2 years of history into memory for fluid background panning
         let bufferCutoffDate = new Date(latestDate);
         bufferCutoffDate.setFullYear(latestDate.getFullYear() - 2);
 
@@ -459,7 +455,6 @@
         
         document.getElementById('last-update').innerText = `Pipeline: ${latestLiveTimestamp}`;
 
-        // Determine Y-axis scaling based strictly on the visible window, not the hidden buffer
         let visibleLevels = [];
         for (let i = 0; i < fullTimestamps.length; i++) {
             if (new Date(fullTimestamps[i]) >= viewCutoffDate) {
@@ -496,12 +491,13 @@
                     legend: { display: false }, 
                     tooltip: { enabled: false },
                     annotation: { annotations: getAnnotations(false) },
-                    zoom: { pan: { enabled: true, mode: 'x', threshold: 10 }, zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'x' } }
+                    // OMNIDIRECTIONAL PAN & ZOOM ACTIVATED ('xy')
+                    zoom: { pan: { enabled: true, mode: 'xy', threshold: 5 }, zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'xy' } }
                 },
                 scales: {
                     y: { min: yMin, max: yMax, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
                     x: { 
-                        type: 'time', // Forces strict chronological scaling
+                        type: 'time',
                         time: { tooltipFormat: 'MMM d, HH:mm', displayFormats: { hour: 'MMM d HH:mm', day: 'MMM d' } },
                         min: viewCutoffDate.getTime(),
                         max: futureDate.getTime(),
