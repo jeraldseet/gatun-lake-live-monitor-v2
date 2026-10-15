@@ -1,6 +1,6 @@
 # Gatun Lake Water Level Monitoring System
 
-**Author:** Jerald Seet Jin  
+**Author:** Jerald Seet Jin | [LinkedIn](www.linkedin.com/in/jerald-seet-45943b296)
 **Date:** 14/10/2026  
 
 **Live Dashboard:** [https://jeraldseet.github.io/gatun-lake-live-monitor-v2/](https://jeraldseet.github.io/gatun-lake-live-monitor-v2/)
@@ -9,6 +9,11 @@
 An automated monitoring dashboard designed to track Panama Canal freshwater levels and visualize transit capacity restrictions in real-time. 
 
 Built for commodity traders and freight analysts, this tool automatically scrapes 10-minute high-resolution data alongside macro historical trends to forecast Neopanamax draft restrictions, daily vessel quotas, and potential supply chain bottlenecks across energy, grain, and container markets.
+
+## Market Context: Why Gatun Lake Matters
+Unlike sea-level canals, the Panama Canal relies on a freshwater reservoir—Gatun Lake—sitting 85 feet above sea level. Every vessel transit consumes roughly 52 million gallons of water. During prolonged dry seasons or severe El Niño events, water levels plummet, forcing the ACP to enforce strict draft reductions and transit quotas. 
+
+By tracking the exact buffer between the current water level and the 84-foot "Watch Zone" or 80-foot "Severe Zone," traders can forecast freight rate spikes, rerouting economics (e.g., Cape of Good Hope diversions), and supply constraints before they are officially announced to the broader market.
 
 ## Key Features
 
@@ -23,8 +28,3 @@ The backend relies entirely on serverless automation via GitHub Actions to maint
 * **Micro-Trend Feed (`live_feed.csv`):** A Python scraper (`monitor.py`) fetches high-resolution data at 10-minute intervals, maintaining a rolling window for short-term intraday momentum.
 * **Macro-Trend Feed (`Download_Gatun_Lake_Water_Level_History.csv`):** A secondary Python script (`daily_append_historical.py`) runs daily to append the absolute latest live reading to a historical dataset extending back to 1965. 
 * **[New] Seasonality ETL Engine (`build_seasonality.py`):** A backend aggregation script compiles decades of daily records into a lightweight, pre-calculated `seasonality.json` file, delivering instant historical bands to the frontend without crashing the browser.
-
-## Market Context: Why Gatun Lake Matters
-Unlike sea-level canals, the Panama Canal relies on a freshwater reservoir—Gatun Lake—sitting 85 feet above sea level. Every vessel transit consumes roughly 52 million gallons of water. During prolonged dry seasons or severe El Niño events, water levels plummet, forcing the ACP to enforce strict draft reductions and transit quotas. 
-
-By tracking the exact buffer between the current water level and the 84-foot "Watch Zone" or 80-foot "Severe Zone," traders can forecast freight rate spikes, rerouting economics (e.g., Cape of Good Hope diversions), and supply constraints before they are officially announced to the broader market.
