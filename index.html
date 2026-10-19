@@ -454,8 +454,14 @@
         if (timeframe === '1M') viewCutoffDate.setMonth(latestDate.getMonth() - 1);
         if (timeframe === '1Y') viewCutoffDate.setFullYear(latestDate.getFullYear() - 1);
 
-        // 3. The Full History Buffer (Removed the 2-year limitation)
-        const filteredData = data; 
+        // 3. The 5-Year Tactical Buffer (Fixes the Canvas Lag)
+        let bufferCutoffDate = new Date(latestDate);
+        bufferCutoffDate.setFullYear(latestDate.getFullYear() - 5);
+
+        const filteredData = data.filter(row => {
+            const rowDate = new Date(row[dateCol]);
+            return rowDate >= bufferCutoffDate && rowDate <= latestDate;
+        });
 
         fullTimestamps = filteredData.map(row => row[dateCol]);
         fullWaterLevels = filteredData.map(row => parseFloat(row[valCol]));
@@ -496,12 +502,12 @@
                     borderColor: '#00D1FF', 
                     borderWidth: 3.5, 
                     fill: false, 
-                    tension: 0, // CRITICAL: Disables curves to optimize 60 years of data
+                    tension: 0, 
                     pointRadius: pointRadii, 
                     pointBackgroundColor: pointColors, 
                     pointBorderColor: 'transparent', 
                     pointHoverRadius: 0,
-                    normalized: true // CRITICAL: Tells Chart.js not to deep-sort the massive array
+                    normalized: true 
                 }]
             },
             options: {
@@ -515,7 +521,7 @@
                         pan: { enabled: true, mode: 'xy', threshold: 5 }, 
                         zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'xy' },
                         limits: {
-                            y: { min: 70, max: 95 } // PREVENTS Y-AXIS BLOWOUT 
+                            y: { min: 70, max: 95 }
                         }
                     }
                 },
