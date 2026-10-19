@@ -438,6 +438,7 @@
         const latestDateStr = data[data.length - 1][dateCol];
         const latestDate = new Date(latestDateStr);
         
+        // 1. Right Margin / Forward Padding
         let futureDate = new Date(latestDate);
         if (timeframe === '1D') futureDate.setHours(latestDate.getHours() + 2);
         if (timeframe === '3D') futureDate.setHours(latestDate.getHours() + 6);
@@ -445,6 +446,7 @@
         if (timeframe === '1M') futureDate.setDate(latestDate.getDate() + 2);
         if (timeframe === '1Y') futureDate.setDate(latestDate.getDate() + 14);
 
+        // 2. Strict Left Windowing for Initial View
         let viewCutoffDate = new Date(latestDate);
         if (timeframe === '1D') viewCutoffDate.setDate(latestDate.getDate() - 1);
         if (timeframe === '3D') viewCutoffDate.setDate(latestDate.getDate() - 3);
@@ -452,13 +454,8 @@
         if (timeframe === '1M') viewCutoffDate.setMonth(latestDate.getMonth() - 1);
         if (timeframe === '1Y') viewCutoffDate.setFullYear(latestDate.getFullYear() - 1);
 
-        let bufferCutoffDate = new Date(latestDate);
-        bufferCutoffDate.setFullYear(latestDate.getFullYear() - 2);
-
-        const filteredData = data.filter(row => {
-            const rowDate = new Date(row[dateCol]);
-            return rowDate >= bufferCutoffDate && rowDate <= latestDate;
-        });
+        // 3. The Full History Buffer (Removed the 2-year limitation)
+        const filteredData = data; 
 
         fullTimestamps = filteredData.map(row => row[dateCol]);
         fullWaterLevels = filteredData.map(row => parseFloat(row[valCol]));
@@ -472,6 +469,7 @@
             }
         }
 
+        // Calculate Y-axis strictly based on visible window to prevent initial squishing
         let yMin, yMax;
         if (['1D', '3D', '1W'].includes(timeframe) && visibleLevels.length > 0) {
             const minVal = Math.min(...visibleLevels);
@@ -492,7 +490,19 @@
             type: 'line',
             data: {
                 labels: fullTimestamps, 
-                datasets: [{ label: 'Elevation', data: fullWaterLevels, borderColor: '#00D1FF', borderWidth: 3.5, fill: false, tension: 0.1, pointRadius: pointRadii, pointBackgroundColor: pointColors, pointBorderColor: 'transparent', pointHoverRadius: 0 }]
+                datasets: [{ 
+                    label: 'Elevation', 
+                    data: fullWaterLevels, 
+                    borderColor: '#00D1FF', 
+                    borderWidth: 3.5, 
+                    fill: false, 
+                    tension: 0, // CRITICAL: Disables curves to optimize 60 years of data
+                    pointRadius: pointRadii, 
+                    pointBackgroundColor: pointColors, 
+                    pointBorderColor: 'transparent', 
+                    pointHoverRadius: 0,
+                    normalized: true // CRITICAL: Tells Chart.js not to deep-sort the massive array
+                }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
@@ -501,8 +511,13 @@
                     legend: { display: false }, 
                     tooltip: { enabled: false },
                     annotation: { annotations: getAnnotations(false) },
-                    // OMNIDIRECTIONAL PAN & ZOOM ACTIVATED ('xy')
-                    zoom: { pan: { enabled: true, mode: 'xy', threshold: 5 }, zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'xy' } }
+                    zoom: { 
+                        pan: { enabled: true, mode: 'xy', threshold: 5 }, 
+                        zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'xy' },
+                        limits: {
+                            y: { min: 70, max: 95 } // PREVENTS Y-AXIS BLOWOUT 
+                        }
+                    }
                 },
                 scales: {
                     y: { min: yMin, max: yMax, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
