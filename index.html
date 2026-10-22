@@ -407,25 +407,31 @@
                     return row['GATUN_LAKE_LEVEL(FEET)'] !== undefined && String(row['GATUN_LAKE_LEVEL(FEET)']).trim() !== "" && !isNaN(val) && val > 0;
                 });
                 
-                // 2. Format the Micro 10-Min Live Data to match the exact array structure of the historical data
-                let formattedLiveData = [];
+                // 2. Format the Micro 10-Min Live Data
                 if (liveData && liveData.length > 0) {
-                    formattedLiveData = liveData.map(row => ({
+                    let formattedLiveData = liveData.map(row => ({
                         'DATE_LOG': row.Timestamp,
                         'GATUN_LAKE_LEVEL(FEET)': parseFloat(row.Value)
                     }));
 
-                    // Find the oldest timestamp in your 7-day live feed
+                    // Find the oldest timestamp in the live feed
                     const oldestLiveDate = new Date(formattedLiveData[0]['DATE_LOG']);
 
-                    // 3. The Splice: Filter out any daily historical data that overlaps with our high-res live data
+                    // 3. The Splice: Filter out overlapping daily historical data
                     validChartData = validChartData.filter(row => new Date(row['DATE_LOG']) < oldestLiveDate);
                     
-                    // Stitch the high-res 10-minute data onto the end of the timeline
-                    validChartData = validChartData.concat(formattedLiveData);
+                    // 4. Timeframe-Specific Resolution Routing (The Fix)
+                    if (timeframe === '1M' || timeframe === '1Y') {
+                        // MACRO UX: Append ONLY the absolute latest live tick
+                        // This prevents chart compression while giving traders the live edge.
+                        validChartData.push(formattedLiveData[formattedLiveData.length - 1]);
+                    } else {
+                        // MICRO UX: Stitch the full high-res 10-minute array for 1D, 3D, 1W
+                        validChartData = validChartData.concat(formattedLiveData);
+                    }
                 }
 
-                // 4. Send the hybrid dataset to the charting engine
+                // 5. Send the dataset to the charting engine
                 if (validChartData.length > 0) drawChart(validChartData, timeframe);
             }
         });
