@@ -401,37 +401,37 @@
         Papa.parse("Download_Gatun_Lake_Water_Level_History.csv", { 
             download: true, header: true, skipEmptyLines: true,
             complete: function(res) {
-                // 1. Load the Macro Historical Daily Data
                 let validChartData = res.data.filter(row => {
                     const val = parseFloat(row['GATUN_LAKE_LEVEL(FEET)']);
                     return row['GATUN_LAKE_LEVEL(FEET)'] !== undefined && String(row['GATUN_LAKE_LEVEL(FEET)']).trim() !== "" && !isNaN(val) && val > 0;
                 });
                 
-                // 2. Format the Micro 10-Min Live Data
                 if (liveData && liveData.length > 0) {
                     let formattedLiveData = liveData.map(row => ({
                         'DATE_LOG': row.Timestamp,
                         'GATUN_LAKE_LEVEL(FEET)': parseFloat(row.Value)
                     }));
 
-                    // Find the oldest timestamp in the live feed
-                    const oldestLiveDate = new Date(formattedLiveData[0]['DATE_LOG']);
+                    const latestLiveTick = formattedLiveData[formattedLiveData.length - 1];
+                    const latestDate = new Date(latestLiveTick['DATE_LOG']);
 
-                    // 3. The Splice: Filter out overlapping daily historical data
-                    validChartData = validChartData.filter(row => new Date(row['DATE_LOG']) < oldestLiveDate);
-                    
-                    // 4. Timeframe-Specific Resolution Routing (The Fix)
                     if (timeframe === '1M' || timeframe === '1Y') {
-                        // MACRO UX: Append ONLY the absolute latest live tick
-                        // This prevents chart compression while giving traders the live edge.
-                        validChartData.push(formattedLiveData[formattedLiveData.length - 1]);
+                        // MACRO UX: Keep all historical data up to yesterday.
+                        // Only filter out "today" to prevent overlapping the live tick.
+                        const startOfToday = new Date(latestDate.getFullYear(), latestDate.getMonth(), latestDate.getDate());
+                        validChartData = validChartData.filter(row => new Date(row['DATE_LOG']) < startOfToday);
+                        
+                        // Append ONLY the absolute latest live tick to cap the trend
+                        validChartData.push(latestLiveTick);
                     } else {
-                        // MICRO UX: Stitch the full high-res 10-minute array for 1D, 3D, 1W
+                        // MICRO UX: Drop historical data that overlaps with our 7-day live feed,
+                        // then stitch the entire high-res 10-minute array onto the end.
+                        const oldestLiveDate = new Date(formattedLiveData[0]['DATE_LOG']);
+                        validChartData = validChartData.filter(row => new Date(row['DATE_LOG']) < oldestLiveDate);
                         validChartData = validChartData.concat(formattedLiveData);
                     }
                 }
 
-                // 5. Send the dataset to the charting engine
                 if (validChartData.length > 0) drawChart(validChartData, timeframe);
             }
         });
