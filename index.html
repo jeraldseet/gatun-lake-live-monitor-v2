@@ -107,7 +107,7 @@
                 <button class="tf-btn" onclick="loadDashboard('1W')">1W</button>
                 <button class="tf-btn" onclick="loadDashboard('1M')">1M</button>
                 <button class="tf-btn" onclick="loadDashboard('1Y')">1Y</button>
-                <button class="tf-btn" style="margin-left: 10px; border-color: #FBBF24; color: #FBBF24;" onclick="loadSeasonality()">Seasonal</button>
+                <button class="tf-btn" style="margin-left: 10px; border-color: #FBBF24; color: #FBBF24;" onclick="loadSeasonality()">Seasonal + 14D Forecast</button>
                 <span class="zoom-hint">Scroll to zoom &bull; Click and drag to pan</span>
                 
                 <button class="tf-btn reset-btn" onclick="resetChartZoom()" title="Snap to Latest Data">►|</button>
@@ -175,6 +175,18 @@
     let currentTimeframe = '3D';
     let latestLiveTimestamp = null;
     let latestLiveValue = null;
+    let currentYearHistMap = {}; // Caches current year's daily closes (e.g. "Oct 16": 85.71) to keep Seasonal synced
+
+    const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    function dateStrToSeasonalLabel(dateStr) {
+        const cleanDate = String(dateStr).trim().split(' ')[0];
+        const parts = cleanDate.split('-');
+        if (parts.length !== 3) return null;
+        const mIdx = parseInt(parts[1], 10) - 1;
+        const day = parts[2].padStart(2, '0');
+        return (mIdx >= 0 && mIdx < 12) ? `${MONTHS_SHORT[mIdx]} ${day}` : null;
+    }
 
     function resetChartZoom() {
         if (gatunChartInstance) {
@@ -191,7 +203,7 @@
         const stack = document.getElementById('insp-stack');
         if (mode === 'SEASONAL') {
             stack.innerHTML = `
-                <div class="data-block"><span class="data-label">Live Trajectory</span><span class="data-value" id="insp-live-stat">-- ft</span></div>
+                <div class="data-block"><span class="data-label" id="insp-live-label">Live / 14D Forecast</span><span class="data-value" id="insp-live-stat">-- ft</span></div>
                 <div class="data-block"><span class="data-label">5-Year Average</span><span class="data-value" id="insp-avg">-- ft</span></div>
                 <div class="data-block"><span class="data-label">2023 Crisis Benchmark</span><span class="data-value" id="insp-crisis">-- ft</span></div>
             `;
@@ -245,19 +257,34 @@
                     const liveVal = chart.data.datasets[4].data[dataIndex]; 
                     const avgVal = chart.data.datasets[2].data[dataIndex];
                     const crisisVal = chart.data.datasets[3].data[dataIndex];
-                    updateInspectorPanel(hoverDate, {live: liveVal, avg: avgVal, crisis: crisisVal});
+                    const fP50 = chart.data.datasets[5] ? chart.data.datasets[5].data[dataIndex] : null;
+                    const fP10 = chart.data.datasets[6] ? chart.data.datasets[6].data[dataIndex] : null;
+                    const fP90 = chart.data.datasets[7] ? chart.data.datasets[7].data[dataIndex] : null;
+                    updateInspectorPanel(hoverDate, {live: liveVal, avg: avgVal, crisis: crisisVal, fP50: fP50, fP10: fP10, fP90: fP90});
                 } else {
                     const ts = fullTimestamps[dataIndex];
-                    const niceDate = new Date(ts).toLocaleString('default', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    const isDateOnly = String(ts).trim().length <= 10;
+                    let niceDate;
+                    if (isDateOnly) {
+                        const [yStr, mStr, dStr] = String(ts).trim().split('-');
+                        niceDate = `${MONTHS_SHORT[parseInt(mStr, 10) - 1]} ${dStr}, ${yStr}`;
+                    } else {
+                        niceDate = new Date(ts).toLocaleString('default', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    }
                     updateInspectorPanel(niceDate, {live: fullWaterLevels[dataIndex]});
                 }
             } else {
-                if (currentTimeframe === 'SEASONAL' && chart.data.datasets[4].data) {
+                if (currentTimeframe === 'SEASONAL' && chart.data.datasets[4] && chart.data.datasets[4].data) {
                     const liveDataArr = chart.data.datasets[4].data;
                     let lastIdx = liveDataArr.length - 1;
                     while (lastIdx >= 0 && liveDataArr[lastIdx] === null) lastIdx--;
                     if (lastIdx >= 0) {
-                        updateInspectorPanel(chart.data.labels[lastIdx], { live: liveDataArr[lastIdx], avg: chart.data.datasets[2].data[lastIdx], crisis: chart.data.datasets[3].data[lastIdx] }, true);
+                        updateInspectorPanel(chart.data.labels[lastIdx], {
+                            live: liveDataArr[lastIdx],
+                            avg: chart.data.datasets[2].data[lastIdx],
+                            crisis: chart.data.datasets[3].data[lastIdx],
+                            fP50: null, fP10: null, fP90: null
+                        }, true);
                     }
                 } else if (latestLiveTimestamp && latestLiveValue) {
                     updateInspectorPanel(latestLiveTimestamp, { live: latestLiveValue }, true);
@@ -268,19 +295,34 @@
     Chart.register(crosshairPlugin);
 
     function updateInspectorPanel(timestamp, dataObj, isLiveFallback = false) {
-        document.getElementById('insp-time').innerText = isLiveFallback ? `LATEST LIVE: ${timestamp}` : (currentTimeframe === 'SEASONAL' ? `SEASONAL DATE: ${timestamp}` : `HOVERED: ${timestamp}`);
+        const isForecastHover = (currentTimeframe === 'SEASONAL' && (dataObj.live === null || dataObj.live === undefined) && dataObj.fP50 !== null && dataObj.fP50 !== undefined);
+        const isClimatologyHover = (currentTimeframe === 'SEASONAL' && (dataObj.live === null || dataObj.live === undefined) && !isForecastHover);
+
+        const timeEl = document.getElementById('insp-time');
+        if (isLiveFallback) {
+            timeEl.innerText = `LATEST LIVE: ${timestamp}`;
+            timeEl.style.color = '#94A3B8';
+        } else if (isForecastHover) {
+            timeEl.innerText = `14D FORECAST: ${timestamp}`;
+            timeEl.style.color = '#00D1FF';
+        } else if (currentTimeframe === 'SEASONAL') {
+            timeEl.innerText = `SEASONAL DATE: ${timestamp}`;
+            timeEl.style.color = '#94A3B8';
+        } else {
+            timeEl.innerText = `HOVERED: ${timestamp}`;
+            timeEl.style.color = '#94A3B8';
+        }
         
         let heroLevel = dataObj.live;
-        let isFuture = false;
-        
-        if (currentTimeframe === 'SEASONAL' && (dataObj.live === null || dataObj.live === undefined)) {
-            heroLevel = dataObj.avg; 
-            isFuture = true;
+        if (isForecastHover) {
+            heroLevel = dataObj.fP50;
+        } else if (isClimatologyHover) {
+            heroLevel = dataObj.avg;
         }
 
         if (heroLevel !== null && heroLevel !== undefined) {
             document.getElementById('insp-elevation').innerText = heroLevel.toFixed(2);
-            document.getElementById('insp-unit').innerText = isFuture ? 'ft (Avg)' : 'ft';
+            document.getElementById('insp-unit').innerText = isForecastHover ? 'ft (Est)' : (isClimatologyHover ? 'ft (Avg)' : 'ft');
         } else {
             document.getElementById('insp-elevation').innerText = '--.--';
             document.getElementById('insp-unit').innerText = 'ft';
@@ -297,19 +339,34 @@
         else { badgeText = "CRITICAL"; badgeBg = "rgba(185, 28, 28, 0.2)"; badgeColor = "#FCA5A5"; range = "< 79 ft"; transits = "22-24 vessels"; draft = "< 44 ft Neopanamax"; impact = "Maximum restrictions. Cargo diversions highly likely."; }
 
         const badge = document.getElementById('insp-badge');
-        badge.innerText = isFuture ? `${badgeText} (TYPICAL)` : badgeText;
-        badge.style.backgroundColor = badgeBg; badge.style.color = badgeColor;
+        badge.innerText = isForecastHover ? `${badgeText} (14D PROJ)` : (isClimatologyHover ? `${badgeText} (TYPICAL)` : badgeText);
+        badge.style.backgroundColor = badgeBg; 
+        badge.style.color = badgeColor;
         
         if (currentTimeframe === 'SEASONAL') {
-            const formatSpread = (live, comp) => {
-                if (!live || !comp) return '';
-                const diff = (live - comp).toFixed(2);
+            const activeRef = (dataObj.live !== null && dataObj.live !== undefined) ? dataObj.live : dataObj.fP50;
+            const formatSpread = (refVal, comp) => {
+                if (refVal === null || refVal === undefined || !comp) return '';
+                const diff = (refVal - comp).toFixed(2);
                 const color = diff >= 0 ? '#10B981' : '#EF4444';
                 return `<span style="color: ${color}; font-size: 0.85em; margin-left: 6px;">(${diff >= 0 ? '+' : ''}${diff} ft)</span>`;
             };
-            document.getElementById('insp-live-stat').innerHTML = dataObj.live ? dataObj.live.toFixed(2) + ' ft' : '<span style="color: #94A3B8; font-style: italic;">Future Date</span>';
-            document.getElementById('insp-avg').innerHTML = dataObj.avg ? dataObj.avg.toFixed(2) + ' ft' + formatSpread(dataObj.live, dataObj.avg) : '--';
-            document.getElementById('insp-crisis').innerHTML = dataObj.crisis ? dataObj.crisis.toFixed(2) + ' ft' + formatSpread(dataObj.live, dataObj.crisis) : '--';
+
+            const liveLabelEl = document.getElementById('insp-live-label');
+            const liveStatEl = document.getElementById('insp-live-stat');
+            if (dataObj.live !== null && dataObj.live !== undefined) {
+                if (liveLabelEl) liveLabelEl.innerText = "Live Trajectory";
+                liveStatEl.innerHTML = dataObj.live.toFixed(2) + ' ft';
+            } else if (isForecastHover) {
+                if (liveLabelEl) liveLabelEl.innerText = "14D Forecast (80% Cone)";
+                liveStatEl.innerHTML = `${dataObj.fP50.toFixed(2)} ft <span style="color: #00D1FF; font-size: 0.82em; margin-left: 4px;">[${dataObj.fP10.toFixed(2)}–${dataObj.fP90.toFixed(2)}]</span>`;
+            } else {
+                if (liveLabelEl) liveLabelEl.innerText = "Live Trajectory";
+                liveStatEl.innerHTML = '<span style="color: #94A3B8; font-style: italic;">Beyond 14D Horizon</span>';
+            }
+
+            document.getElementById('insp-avg').innerHTML = dataObj.avg ? dataObj.avg.toFixed(2) + ' ft' + formatSpread(activeRef, dataObj.avg) : '--';
+            document.getElementById('insp-crisis').innerHTML = dataObj.crisis ? dataObj.crisis.toFixed(2) + ' ft' + formatSpread(activeRef, dataObj.crisis) : '--';
         } else {
             document.getElementById('insp-range').innerText = range;
             document.getElementById('insp-transits').innerText = transits;
@@ -324,11 +381,64 @@
         setInspectorMode('SEASONAL');
         document.querySelectorAll('.tf-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`.tf-btn[onclick="loadSeasonality()"]`).classList.add('active');
-        document.getElementById('last-update').innerText = `Fetching seasonality model...`;
+        document.getElementById('last-update').innerText = `Compiling seasonality & 14D forecast...`;
 
         fetch('seasonality.json?_=' + new Date().getTime())
             .then(response => { if (!response.ok) throw new Error("Missing File"); return response.json(); })
             .then(data => {
+                // 1. Sync any recent daily closes from Download_Gatun_Lake_Water_Level_History.csv & live_feed.csv
+                const liveArr = data.current_year.slice();
+                data.labels.forEach((lbl, idx) => {
+                    if (currentYearHistMap[lbl] !== undefined) {
+                        liveArr[idx] = currentYearHistMap[lbl];
+                    }
+                });
+                if (latestLiveTimestamp && latestLiveValue !== null) {
+                    const liveLbl = dateStrToSeasonalLabel(latestLiveTimestamp);
+                    const liveIdx = data.labels.indexOf(liveLbl);
+                    if (liveIdx !== -1) liveArr[liveIdx] = latestLiveValue;
+                }
+
+                // 2. Locate the latest valid observation index
+                let lastIdx = liveArr.length - 1;
+                while (lastIdx >= 0 && (liveArr[lastIdx] === null || liveArr[lastIdx] === undefined)) lastIdx--;
+
+                // 3. Build 14-Day Damped Momentum + Seasonal Drift Forecast (P50, P10, P90)
+                const forecastP50 = new Array(data.labels.length).fill(null);
+                const forecastP10 = new Array(data.labels.length).fill(null);
+                const forecastP90 = new Array(data.labels.length).fill(null);
+
+                if (lastIdx >= 0) {
+                    let lookbackIdx = Math.max(0, lastIdx - 7);
+                    while (lookbackIdx < lastIdx && (liveArr[lookbackIdx] === null || liveArr[lookbackIdx] === undefined)) {
+                        lookbackIdx++;
+                    }
+                    const daysElapsed = Math.max(1, lastIdx - lookbackIdx);
+                    const momentum7d = (liveArr[lastIdx] - liveArr[lookbackIdx]) / daysElapsed;
+
+                    // Anchor Day 0 to latest live point for seamless line connection
+                    forecastP50[lastIdx] = liveArr[lastIdx];
+                    forecastP10[lastIdx] = liveArr[lastIdx];
+                    forecastP90[lastIdx] = liveArr[lastIdx];
+
+                    let runningPred = liveArr[lastIdx];
+                    const lambda = 0.75;   // Daily momentum retention factor
+                    const sigma1d = 0.0667; // Historical 1-day elevation volatility (ft)
+
+                    for (let k = 1; k <= 14 && (lastIdx + k) < data.labels.length; k++) {
+                        const idx = lastIdx + k;
+                        const seasonalSlope = data.avg_5yr[idx] - data.avg_5yr[idx - 1];
+                        const weight = Math.pow(lambda, k);
+
+                        runningPred += (weight * momentum7d) + ((1 - weight) * seasonalSlope);
+                        const band = 1.28 * sigma1d * Math.sqrt(k); // 80% confidence cone (P10 to P90)
+
+                        forecastP50[idx] = Number(runningPred.toFixed(2));
+                        forecastP10[idx] = Number((runningPred - band).toFixed(2));
+                        forecastP90[idx] = Number((runningPred + band).toFixed(2));
+                    }
+                }
+
                 if (gatunChartInstance) { gatunChartInstance.destroy(); }
                 const ctx = document.getElementById('gatunChart').getContext('2d');
                 gatunChartInstance = new Chart(ctx, {
@@ -340,17 +450,22 @@
                             { label: '5-Year Range', data: data.max_5yr, borderColor: 'transparent', backgroundColor: 'rgba(148, 163, 184, 0.15)', pointRadius: 0, fill: '-1', tooltip: false },
                             { label: '5-Year Average', data: data.avg_5yr, borderColor: 'rgba(148, 163, 184, 0.8)', borderDash: [5, 5], borderWidth: 2, pointRadius: 0, fill: false },
                             { label: '2023 Drought Crisis', data: data.crisis_2023, borderColor: '#FFFFFF', borderWidth: 2, pointRadius: 0, fill: false }, 
-                            { label: data.current_year_label + ' (Live)', data: data.current_year, borderColor: '#00D1FF', borderWidth: 3.5, pointRadius: 0, fill: false }
+                            { label: data.current_year_label + ' (Live)', data: liveArr, borderColor: '#00D1FF', borderWidth: 3.5, pointRadius: 0, fill: false, spanGaps: true },
+                            { label: '14D Forecast (P50)', data: forecastP50, borderColor: '#00D1FF', borderDash: [4, 4], borderWidth: 2.5, pointRadius: 0, fill: false },
+                            { label: 'Forecast P10', data: forecastP10, borderColor: 'transparent', backgroundColor: 'transparent', pointRadius: 0, fill: false, tooltip: false },
+                            { label: '80% Forecast Cone', data: forecastP90, borderColor: 'transparent', backgroundColor: 'rgba(0, 209, 255, 0.14)', pointRadius: 0, fill: '-1', tooltip: false }
                         ]
                     },
                     options: {
                         responsive: true, maintainAspectRatio: false,
                         interaction: { mode: 'index', intersect: false, axis: 'x' },
                         plugins: {
-                            legend: { display: true, position: 'top', labels: { color: '#94A3B8', usePointStyle: true, boxWidth: 8, filter: item => !item.text.includes('Min') } },
+                            legend: { 
+                                display: true, position: 'top', 
+                                labels: { color: '#94A3B8', usePointStyle: true, boxWidth: 8, filter: item => !item.text.includes('Min') && !item.text.includes('P10') } 
+                            },
                             tooltip: { enabled: false },
                             annotation: { annotations: getAnnotations(true) }, 
-                            // OMNIDIRECTIONAL PAN & ZOOM ACTIVATED ('xy')
                             zoom: { pan: { enabled: true, mode: 'xy', threshold: 5 }, zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'xy' } }
                         },
                         scales: {
@@ -362,12 +477,20 @@
                         }
                     }
                 });
-                document.getElementById('last-update').innerText = `Seasonality Model Compiled.`;
+
+                const endForecastIdx = Math.min(data.labels.length - 1, lastIdx + 14);
+                document.getElementById('last-update').innerText = lastIdx >= 0 
+                    ? `14D Forecast Target (${data.labels[endForecastIdx]}): ${forecastP50[endForecastIdx].toFixed(2)} ft`
+                    : `Seasonality Model Compiled.`;
                 
-                const liveDataArr = data.current_year;
-                let lastIdx = liveDataArr.length - 1;
-                while (lastIdx >= 0 && liveDataArr[lastIdx] === null) lastIdx--;
-                if (lastIdx >= 0) updateInspectorPanel(data.labels[lastIdx], {live: liveDataArr[lastIdx], avg: data.avg_5yr[lastIdx], crisis: data.crisis_2023[lastIdx]}, true);
+                if (lastIdx >= 0) {
+                    updateInspectorPanel(data.labels[lastIdx], {
+                        live: liveArr[lastIdx],
+                        avg: data.avg_5yr[lastIdx],
+                        crisis: data.crisis_2023[lastIdx],
+                        fP50: null, fP10: null, fP90: null
+                    }, true);
+                }
             })
             .catch(error => { console.error("Error:", error); document.getElementById('last-update').innerText = `⚠️ Error: seasonality.json is missing.`; });
     }
@@ -397,158 +520,49 @@
         });
     }
 
-   function fetchHistoricalAndDraw(timeframe, liveData) {
-        Papa.parse("Download_Gatun_Lake_Water_Level_History.csv", { 
+    function fetchHistoricalAndDraw(timeframe, liveData) {
+        Papa.parse("Download_Gatun_Lake_Water_Level_History.csv?_=" + new Date().getTime(), { 
             download: true, header: true, skipEmptyLines: true,
             complete: function(res) {
-                let validChartData = res.data.filter(row => {
+                // 1. Load & clean Macro Historical Daily Data
+                let rawHistData = res.data.filter(row => {
                     const val = parseFloat(row['GATUN_LAKE_LEVEL(FEET)']);
-                    return row['GATUN_LAKE_LEVEL(FEET)'] !== undefined && String(row['GATUN_LAKE_LEVEL(FEET)']).trim() !== "" && !isNaN(val) && val > 0;
+                    return row['DATE_LOG'] && row['GATUN_LAKE_LEVEL(FEET)'] !== undefined && String(row['GATUN_LAKE_LEVEL(FEET)']).trim() !== "" && !isNaN(val) && val > 0;
                 });
-                
+
+                // Deduplicate historical data by YYYY-MM-DD and cache current year for Seasonal Forecast
+                const dedupMap = new Map();
+                const currentYearStr = String(new Date().getFullYear());
+                currentYearHistMap = {};
+
+                rawHistData.forEach(row => {
+                    const dateOnly = String(row['DATE_LOG']).trim().split(' ')[0];
+                    const val = parseFloat(row['GATUN_LAKE_LEVEL(FEET)']);
+                    dedupMap.set(dateOnly, { 'DATE_LOG': dateOnly, 'GATUN_LAKE_LEVEL(FEET)': val });
+                    if (dateOnly.startsWith(currentYearStr)) {
+                        const lbl = dateStrToSeasonalLabel(dateOnly);
+                        if (lbl) currentYearHistMap[lbl] = val;
+                    }
+                });
+
+                let validChartData = Array.from(dedupMap.values());
+
+                // 2. Timeframe-Specific Resolution Routing
                 if (liveData && liveData.length > 0) {
                     let formattedLiveData = liveData.map(row => ({
-                        'DATE_LOG': row.Timestamp,
+                        'DATE_LOG': String(row.Timestamp).trim(),
                         'GATUN_LAKE_LEVEL(FEET)': parseFloat(row.Value)
                     }));
 
-                    const latestLiveTick = formattedLiveData[formattedLiveData.length - 1];
-                    const latestDate = new Date(latestLiveTick['DATE_LOG']);
-
                     if (timeframe === '1M' || timeframe === '1Y') {
-                        // MACRO UX: Keep all historical data up to yesterday.
-                        // Only filter out "today" to prevent overlapping the live tick.
-                        const startOfToday = new Date(latestDate.getFullYear(), latestDate.getMonth(), latestDate.getDate());
-                        validChartData = validChartData.filter(row => new Date(row['DATE_LOG']) < startOfToday);
+                        // MACRO UX: Strictly 1D historical intervals (YYYY-MM-DD).
+                        // Update or append today's single daily point with the latest live reading to avoid UTC/local timezone shifts.
+                        const latestTick = formattedLiveData[formattedLiveData.length - 1];
+                        const latestDateOnly = latestTick['DATE_LOG'].split(' ')[0];
                         
-                        // Append ONLY the absolute latest live tick to cap the trend
-                        validChartData.push(latestLiveTick);
-                    } else {
-                        // MICRO UX: Drop historical data that overlaps with our 7-day live feed,
-                        // then stitch the entire high-res 10-minute array onto the end.
-                        const oldestLiveDate = new Date(formattedLiveData[0]['DATE_LOG']);
-                        validChartData = validChartData.filter(row => new Date(row['DATE_LOG']) < oldestLiveDate);
-                        validChartData = validChartData.concat(formattedLiveData);
-                    }
-                }
-
-                if (validChartData.length > 0) drawChart(validChartData, timeframe);
-            }
-        });
-    }
-
-    function drawChart(data, timeframe) {
-        const dateCol = "DATE_LOG";
-        const valCol = "GATUN_LAKE_LEVEL(FEET)";
-        
-        const latestDateStr = data[data.length - 1][dateCol];
-        const latestDate = new Date(latestDateStr);
-        
-        // 1. Right Margin / Forward Padding
-        let futureDate = new Date(latestDate);
-        if (timeframe === '1D') futureDate.setHours(latestDate.getHours() + 2);
-        if (timeframe === '3D') futureDate.setHours(latestDate.getHours() + 6);
-        if (timeframe === '1W') futureDate.setHours(latestDate.getHours() + 12);
-        if (timeframe === '1M') futureDate.setDate(latestDate.getDate() + 2);
-        if (timeframe === '1Y') futureDate.setDate(latestDate.getDate() + 14);
-
-        // 2. Strict Left Windowing for Initial View
-        let viewCutoffDate = new Date(latestDate);
-        if (timeframe === '1D') viewCutoffDate.setDate(latestDate.getDate() - 1);
-        if (timeframe === '3D') viewCutoffDate.setDate(latestDate.getDate() - 3);
-        if (timeframe === '1W') viewCutoffDate.setDate(latestDate.getDate() - 7);
-        if (timeframe === '1M') viewCutoffDate.setMonth(latestDate.getMonth() - 1);
-        if (timeframe === '1Y') viewCutoffDate.setFullYear(latestDate.getFullYear() - 1);
-
-        // 3. The 5-Year Tactical Buffer (Fixes the Canvas Lag)
-        let bufferCutoffDate = new Date(latestDate);
-        bufferCutoffDate.setFullYear(latestDate.getFullYear() - 5);
-
-        const filteredData = data.filter(row => {
-            const rowDate = new Date(row[dateCol]);
-            return rowDate >= bufferCutoffDate && rowDate <= latestDate;
-        });
-
-        fullTimestamps = filteredData.map(row => row[dateCol]);
-        fullWaterLevels = filteredData.map(row => parseFloat(row[valCol]));
-        
-        document.getElementById('last-update').innerText = `Pipeline: ${latestLiveTimestamp}`;
-
-        let visibleLevels = [];
-        for (let i = 0; i < fullTimestamps.length; i++) {
-            if (new Date(fullTimestamps[i]) >= viewCutoffDate) {
-                visibleLevels.push(fullWaterLevels[i]);
-            }
-        }
-
-        // Calculate Y-axis strictly based on visible window to prevent initial squishing
-        let yMin, yMax;
-        if (['1D', '3D', '1W'].includes(timeframe) && visibleLevels.length > 0) {
-            const minVal = Math.min(...visibleLevels);
-            const maxVal = Math.max(...visibleLevels);
-            yMin = Math.floor(minVal) - 1.5; 
-            yMax = Math.ceil(maxVal) + 1.5;
-        } else {
-            yMin = 77; yMax = 89;
-        }
-
-        const pointRadii = fullWaterLevels.map((_, index) => index === fullWaterLevels.length - 1 ? 6 : 0);
-        const pointColors = fullWaterLevels.map((_, index) => index === fullWaterLevels.length - 1 ? '#00D1FF' : 'transparent');
-
-        if (gatunChartInstance) { gatunChartInstance.destroy(); }
-        
-        const ctx = document.getElementById('gatunChart').getContext('2d');
-        gatunChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: fullTimestamps, 
-                datasets: [{ 
-                    label: 'Elevation', 
-                    data: fullWaterLevels, 
-                    borderColor: '#00D1FF', 
-                    borderWidth: 3.5, 
-                    fill: false, 
-                    tension: 0, 
-                    pointRadius: pointRadii, 
-                    pointBackgroundColor: pointColors, 
-                    pointBorderColor: 'transparent', 
-                    pointHoverRadius: 0,
-                    normalized: true 
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false, axis: 'x' },
-                plugins: {
-                    legend: { display: false }, 
-                    tooltip: { enabled: false },
-                    annotation: { annotations: getAnnotations(false) },
-                    zoom: { 
-                        pan: { enabled: true, mode: 'xy', threshold: 5 }, 
-                        zoom: { wheel: { enabled: true, speed: 0.05 }, pinch: { enabled: true }, mode: 'xy' },
-                        limits: {
-                            y: { min: 70, max: 95 }
-                        }
-                    }
-                },
-                scales: {
-                    y: { min: yMin, max: yMax, grid: { color: '#334155' }, ticks: { color: '#94A3B8', font: { weight: 'bold' } } },
-                    x: { 
-                        type: 'time',
-                        time: { tooltipFormat: 'MMM d, HH:mm', displayFormats: { hour: 'MMM d HH:mm', day: 'MMM d' } },
-                        min: viewCutoffDate.getTime(),
-                        max: futureDate.getTime(),
-                        grid: { display: false }, 
-                        ticks: { color: '#94A3B8', maxRotation: 0, maxTicksLimit: 8 } 
-                    }
-                }
-            }
-        });
-    }
-
-    loadDashboard('3D');
-    clearInterval(pollInterval);
-    pollInterval = setInterval(() => { if (['1D', '3D', '1W'].includes(currentTimeframe)) loadDashboard(currentTimeframe); }, 60000);
-</script>
-</body>
-</html>
+                        if (validChartData.length > 0 && validChartData[validChartData.length - 1]['DATE_LOG'] === latestDateOnly) {
+                            validChartData[validChartData.length - 1]['GATUN_LAKE_LEVEL(FEET)'] = latestTick['GATUN_LAKE_LEVEL(FEET)'];
+                        } else {
+                            validChartData.push({
+                                'DATE_LOG': latestDateOnly,
+                                'GATUN_LAKE_LEVEL(FEET)':
