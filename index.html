@@ -500,9 +500,15 @@
         setInspectorMode('STANDARD');
         document.querySelectorAll('.tf-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`.tf-btn[onclick="loadDashboard('${timeframe}')"]`).classList.add('active');
+        document.getElementById('last-update').innerText = `Fetching live feed...`;
 
         Papa.parse("live_feed.csv?_=" + new Date().getTime(), { 
             download: true, header: true, skipEmptyLines: true,
+            error: function(err) {
+                console.error("Live Feed Error:", err);
+                document.getElementById('last-update').innerText = `⚠️ Error loading live_feed.csv`;
+                document.getElementById('insp-impact').innerText = `Critical Error: Unable to fetch live feed. Check GitHub Pages deployment status.`;
+            },
             complete: function(res) {
                 const liveData = res.data.filter(r => r.Value !== undefined && String(r.Value).trim() !== "" && !isNaN(parseFloat(r.Value)));
                 if (liveData.length > 0) {
@@ -515,22 +521,26 @@
                     document.getElementById('sync-text').innerText = `LIVE (Synced ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')})`;
 
                     fetchHistoricalAndDraw(timeframe, liveData);
+                } else {
+                    document.getElementById('last-update').innerText = `⚠️ live_feed.csv is empty or malformed`;
                 }
             }
         });
     }
 
-    function fetchHistoricalAndDraw(timeframe, liveData) {
+   function fetchHistoricalAndDraw(timeframe, liveData) {
         Papa.parse("Download_Gatun_Lake_Water_Level_History.csv?_=" + new Date().getTime(), { 
             download: true, header: true, skipEmptyLines: true,
+            error: function(err) {
+                console.error("Historical CSV Error:", err);
+                document.getElementById('last-update').innerText = `⚠️ Error loading historical CSV`;
+            },
             complete: function(res) {
-                // 1. Load & clean Macro Historical Daily Data
                 let rawHistData = res.data.filter(row => {
                     const val = parseFloat(row['GATUN_LAKE_LEVEL(FEET)']);
                     return row['DATE_LOG'] && row['GATUN_LAKE_LEVEL(FEET)'] !== undefined && String(row['GATUN_LAKE_LEVEL(FEET)']).trim() !== "" && !isNaN(val) && val > 0;
                 });
 
-                // Deduplicate historical data by YYYY-MM-DD and cache current year for Seasonal Forecast
                 const dedupMap = new Map();
                 const currentYearStr = String(new Date().getFullYear());
                 currentYearHistMap = {};
@@ -547,7 +557,6 @@
 
                 let validChartData = Array.from(dedupMap.values());
 
-                // 2. Timeframe-Specific Resolution Routing
                 if (liveData && liveData.length > 0) {
                     let formattedLiveData = liveData.map(row => ({
                         'DATE_LOG': String(row.Timestamp).trim(),
@@ -555,8 +564,6 @@
                     }));
 
                     if (timeframe === '1M' || timeframe === '1Y') {
-                        // MACRO UX: Strictly 1D historical intervals (YYYY-MM-DD).
-                        // Update or append today's single daily point with the latest live reading to avoid UTC/local timezone shifts.
                         const latestTick = formattedLiveData[formattedLiveData.length - 1];
                         const latestDateOnly = latestTick['DATE_LOG'].split(' ')[0];
                         
@@ -565,4 +572,21 @@
                         } else {
                             validChartData.push({
                                 'DATE_LOG': latestDateOnly,
-                                'GATUN_LAKE_LEVEL(FEET)':
+                                'GATUN_LAKE_LEVEL(FEET)': latestTick['GATUN_LAKE_LEVEL(FEET)']
+                            });
+                        }
+                    } else {
+                        const oldestLiveDateOnly = formattedLiveData[0]['DATE_LOG'].split(' ')[0];
+                        validChartData = validChartData.filter(row => row['DATE_LOG'] < oldestLiveDateOnly);
+                        validChartData = validChartData.concat(formattedLiveData);
+                    }
+                }
+
+                if (validChartData.length > 0) {
+                    drawChart(validChartData, timeframe);
+                } else {
+                    document.getElementById('last-update').innerText = `⚠️ No valid chart data to render`;
+                }
+            }
+        });
+    }
